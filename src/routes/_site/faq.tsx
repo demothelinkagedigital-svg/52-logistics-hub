@@ -36,8 +36,6 @@ function Faq() {
   const { data: faqs } = useSuspenseQuery(faqsQuery);
   const [open, setOpen] = useState<string | null>(faqs[0]?.id ?? null);
 
-  const categories = Array.from(new Set(faqs.map((f) => f.category)));
-
   return (
     <>
       <section className="surface-ink py-20 lg:py-24">
@@ -52,42 +50,35 @@ function Faq() {
       </section>
 
       <section className="container-page max-w-3xl py-16 lg:py-20">
-        {categories.map((category) => (
-          <div key={category} className="mb-12 last:mb-0">
-            <h2 className="eyebrow text-accent">{category}</h2>
-            <ul className="mt-4 border-t border-border">
-              {faqs
-                .filter((f) => f.category === category)
-                .map((faq) => {
-                  const expanded = open === faq.id;
-                  return (
-                    <li key={faq.id} className="border-b border-border">
-                      <h3>
-                        <button
-                          type="button"
-                          onClick={() => setOpen(expanded ? null : faq.id)}
-                          aria-expanded={expanded}
-                          aria-controls={`faq-panel-${faq.id}`}
-                          className="flex w-full items-start justify-between gap-4 py-5 text-left"
-                        >
-                          <span className="font-semibold">{faq.question}</span>
-                          <ChevronDown
-                            className={`mt-0.5 size-5 shrink-0 text-accent transition-transform ${expanded ? "rotate-180" : ""}`}
-                            aria-hidden="true"
-                          />
-                        </button>
-                      </h3>
-                      {expanded ? (
-                        <div id={`faq-panel-${faq.id}`} className="pb-5 pr-10">
-                          <p className="text-sm leading-relaxed text-muted-foreground">{faq.answer}</p>
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-            </ul>
-          </div>
-        ))}
+        <ul className="border-t border-border">
+          {faqs.map((faq) => {
+            const expanded = open === faq.id;
+            return (
+              <li key={faq.id} className="border-b border-border">
+                <h2>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(expanded ? null : faq.id)}
+                    aria-expanded={expanded}
+                    aria-controls={`faq-panel-${faq.id}`}
+                    className="flex w-full items-start justify-between gap-4 py-5 text-left"
+                  >
+                    <span className="font-semibold">{faq.question}</span>
+                    <ChevronDown
+                      className={`mt-0.5 size-5 shrink-0 text-accent transition-transform ${expanded ? "rotate-180" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </h2>
+                {expanded ? (
+                  <div id={`faq-panel-${faq.id}`} className="pb-5 pr-10">
+                    <p className="text-sm leading-relaxed text-muted-foreground">{faq.answer}</p>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       </section>
     </>
   );
