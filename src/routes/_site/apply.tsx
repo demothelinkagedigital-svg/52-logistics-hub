@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, ClipboardList } from "lucide-react";
 
 export const Route = createFileRoute("/_site/apply")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    position: typeof search["position"] === "string" ? (search["position"] as string) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { position?: string } =>
+    typeof search["position"] === "string" ? { position: search["position"] } : {},
+
   head: () => ({
     meta: [
       { title: "Apply — Driver Application | 52 Logistics, Inc." },
