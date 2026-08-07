@@ -2,13 +2,6 @@ import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
-  ClipboardList,
-  Users,
-  GraduationCap,
-  BookOpen,
-  ShieldCheck,
-  Megaphone,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -18,7 +11,7 @@ import { useSession, useSignOut, ROLE_LABELS } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 export function PortalShell({ children }: { children: ReactNode }) {
-  const { roles, isRecruiter, isAdmin } = useSession();
+  const { roles } = useSession();
   const signOut = useSignOut();
   const [open, setOpen] = useState(false);
 
