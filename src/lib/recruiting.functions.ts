@@ -1,11 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import {
-  APPLICATION_STATUSES,
-  SCREENING_STATUSES,
-  ESIGN_STATUSES,
-} from "@/lib/application-schema";
+import { APPLICATION_STATUSES, SCREENING_STATUSES, ESIGN_STATUSES } from "@/lib/application-schema";
 
 export const listApplications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -33,10 +29,26 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
     if (!isStaff) throw new Error("Forbidden");
     const [appRes, empRes, docRes, noteRes, eventRes, screenRes, esignRes] = await Promise.all([
       supabase.from("applications").select("*").eq("id", data.id).maybeSingle(),
-      supabase.from("application_employers").select("*").eq("application_id", data.id).order("sort_order"),
-      supabase.from("application_documents").select("*").eq("application_id", data.id).order("created_at"),
-      supabase.from("application_notes").select("*").eq("application_id", data.id).order("created_at", { ascending: false }),
-      supabase.from("application_events").select("*").eq("application_id", data.id).order("created_at", { ascending: false }),
+      supabase
+        .from("application_employers")
+        .select("*")
+        .eq("application_id", data.id)
+        .order("sort_order"),
+      supabase
+        .from("application_documents")
+        .select("*")
+        .eq("application_id", data.id)
+        .order("created_at"),
+      supabase
+        .from("application_notes")
+        .select("*")
+        .eq("application_id", data.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("application_events")
+        .select("*")
+        .eq("application_id", data.id)
+        .order("created_at", { ascending: false }),
       supabase.from("screening_records").select("*").eq("application_id", data.id).maybeSingle(),
       supabase.from("esign_records").select("*").eq("application_id", data.id).order("created_at"),
     ]);

@@ -1,6 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowRight, ShieldCheck, Route as RouteIcon, GraduationCap, Wrench, Clock, MapPin } from "lucide-react";
+import {
+  ArrowRight,
+  ShieldCheck,
+  Route as RouteIcon,
+  GraduationCap,
+  Wrench,
+  Clock,
+  MapPin,
+} from "lucide-react";
 import { getPublicJobs } from "@/lib/public-content.functions";
 import { Reveal, Stagger, StaggerItem } from "@/components/site/Reveal";
 import { APPROVED_FLEET_IDS } from "@/lib/brand";
@@ -62,8 +70,8 @@ function Home() {
               <span className="text-accent"> 52 Logistics.</span>
             </h1>
             <p className="mt-7 max-w-xl text-lg leading-relaxed text-ink-muted">
-              Join a professional Harrisburg-based linehaul team built around safety, accountability,
-              reliable equipment, and respect for the people behind every mile.
+              Join a professional Harrisburg-based linehaul team built around safety,
+              accountability, reliable equipment, and respect for the people behind every mile.
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -71,7 +79,10 @@ function Home() {
                 className="group inline-flex items-center justify-center gap-2 rounded-sm bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground transition-transform hover:-translate-y-0.5"
               >
                 View Open Positions
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                <ArrowRight
+                  className="size-4 transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
               </Link>
               <Link
                 to="/apply"
@@ -124,7 +135,10 @@ function Home() {
             className="group inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           >
             See all {jobs.length} openings
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            <ArrowRight
+              className="size-4 transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
           </Link>
         </div>
 
@@ -150,7 +164,9 @@ function Home() {
                     <dd>{job.schedule}</dd>
                   </div>
                 </dl>
-                <p className="mt-4 flex-1 text-sm leading-relaxed text-foreground/80">{job.summary}</p>
+                <p className="mt-4 flex-1 text-sm leading-relaxed text-foreground/80">
+                  {job.summary}
+                </p>
                 <Link
                   to="/careers"
                   hash={job.slug}
@@ -166,7 +182,10 @@ function Home() {
       </section>
 
       {/* WHY */}
-      <section className="border-y border-border bg-surface-2 py-20 lg:py-24" aria-labelledby="why-heading">
+      <section
+        className="border-y border-border bg-surface-2 py-20 lg:py-24"
+        aria-labelledby="why-heading"
+      >
         <div className="container-page grid gap-12 lg:grid-cols-12">
           <Reveal className="lg:col-span-4">
             <p className="eyebrow text-accent">Why drive with us</p>
@@ -174,8 +193,8 @@ function Home() {
               Built for drivers who take the work seriously.
             </h2>
             <p className="mt-5 text-base leading-relaxed text-muted-foreground">
-              52 Logistics, Inc. is an independent contracted service provider supporting FedEx linehaul
-              operations. We run a disciplined operation with clear expectations and direct
+              52 Logistics, Inc. is an independent contracted service provider supporting FedEx
+              linehaul operations. We run a disciplined operation with clear expectations and direct
               communication between drivers and management.
             </p>
           </Reveal>
@@ -217,8 +236,8 @@ function Home() {
               Equipment our drivers can count on.
             </h2>
             <p className="mt-5 text-base leading-relaxed text-muted-foreground">
-              Our tractors are maintained to support consistent linehaul and P&amp;D service out of the
-              Harrisburg operation. Approved unit identifiers you may see on the yard include:
+              Our tractors are maintained to support consistent linehaul and P&amp;D service out of
+              the Harrisburg operation. Approved unit identifiers you may see on the yard include:
             </p>
             <ul className="mt-6 flex flex-wrap gap-2" aria-label="Approved fleet identifiers">
               {APPROVED_FLEET_IDS.map((id) => (
@@ -237,10 +256,12 @@ function Home() {
           <Reveal delay={0.1}>
             <div className="panel flex aspect-16/10 flex-col items-center justify-center border-dashed p-8 text-center">
               <Wrench className="size-8 text-accent" aria-hidden="true" />
-              <p className="mt-4 text-sm font-semibold uppercase tracking-wide">Fleet photography placeholder</p>
+              <p className="mt-4 text-sm font-semibold uppercase tracking-wide">
+                Fleet photography placeholder
+              </p>
               <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                Owner-supplied truck photography will be uploaded through the admin media library and
-                rendered here with optimized derivatives.
+                Owner-supplied truck photography will be uploaded through the admin media library
+                and rendered here with optimized derivatives.
               </p>
             </div>
           </Reveal>
@@ -273,14 +294,36 @@ function Home() {
 
           <Reveal delay={0.1}>
             <p className="eyebrow text-accent">Structured onboarding</p>
-            <h2 className="display-lg mt-3 text-ink-foreground">A defined path from offer to road.</h2>
+            <h2 className="display-lg mt-3 text-ink-foreground">
+              A defined path from offer to road.
+            </h2>
             <ol className="mt-7 space-y-6">
               {[
-                ["01", "Application review", "A recruiter reviews your application. No automated hire or reject decisions."],
-                ["02", "External screening", "Where applicable, screening is completed through First Advantage, our external provider."],
-                ["03", "Driver Portal invitation", "Selected drivers receive a secure, single-use setup link."],
-                ["04", "Driver Academy", "Six structured modules covering expectations, handbook, systems, safety and terminal procedure."],
-                ["05", "Management verification", "Management verifies completion before operational release."],
+                [
+                  "01",
+                  "Application review",
+                  "A recruiter reviews your application. No automated hire or reject decisions.",
+                ],
+                [
+                  "02",
+                  "External screening",
+                  "Where applicable, screening is completed through First Advantage, our external provider.",
+                ],
+                [
+                  "03",
+                  "Driver Portal invitation",
+                  "Selected drivers receive a secure, single-use setup link.",
+                ],
+                [
+                  "04",
+                  "Driver Academy",
+                  "Six structured modules covering expectations, handbook, systems, safety and terminal procedure.",
+                ],
+                [
+                  "05",
+                  "Management verification",
+                  "Management verifies completion before operational release.",
+                ],
               ].map(([n, title, body]) => (
                 <li key={n} className="flex gap-5">
                   <span className="font-mono text-sm font-semibold text-accent">{n}</span>
@@ -331,7 +374,10 @@ function Home() {
           className="group mt-8 inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
         >
           Preview driver resources
-          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          <ArrowRight
+            className="size-4 transition-transform group-hover:translate-x-0.5"
+            aria-hidden="true"
+          />
         </Link>
       </section>
 

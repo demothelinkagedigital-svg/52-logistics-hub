@@ -34,7 +34,9 @@ function About() {
       <section className="surface-ink py-20 lg:py-24">
         <div className="container-page max-w-4xl">
           <p className="eyebrow text-accent">About the company</p>
-          <h1 className="display-xl mt-5 text-ink-foreground">A Harrisburg operation, run with discipline.</h1>
+          <h1 className="display-xl mt-5 text-ink-foreground">
+            A Harrisburg operation, run with discipline.
+          </h1>
           <p className="mt-7 text-lg leading-relaxed text-ink-muted">
             52 Logistics, Inc. is a Harrisburg-based transportation company and an independent
             contracted service provider supporting FedEx linehaul operations from Terminal 170.
@@ -52,26 +54,35 @@ function About() {
               customer relationship is built on, and it is what we hire for.
             </p>
             <p>
-              We keep communication direct. Drivers know who to call, what the escalation path is, and
-              where to find the current version of any procedure. Announcements, safety material,
-              handbook versions and acknowledgements all live in one authenticated Driver Portal rather
-              than scattered across text threads.
+              We keep communication direct. Drivers know who to call, what the escalation path is,
+              and where to find the current version of any procedure. Announcements, safety
+              material, handbook versions and acknowledgements all live in one authenticated Driver
+              Portal rather than scattered across text threads.
             </p>
             <p>
-              New drivers are not left to figure the operation out on their own. Structured onboarding
-              through the Driver Academy covers company expectations, the handbook, required apps and
-              systems, safety fundamentals, and terminal and gate procedure — with management
-              verification before operational release.
+              New drivers are not left to figure the operation out on their own. Structured
+              onboarding through the Driver Academy covers company expectations, the handbook,
+              required apps and systems, safety fundamentals, and terminal and gate procedure — with
+              management verification before operational release.
             </p>
           </div>
 
           <h2 className="display-lg mt-14">What we stand on</h2>
           <ul className="mt-6 grid gap-px bg-border sm:grid-cols-2">
             {[
-              ["Dependable service", "Consistent, on-schedule performance for the operation we support."],
-              ["Safe operating practices", "Documented safety expectations, reinforced and acknowledged."],
+              [
+                "Dependable service",
+                "Consistent, on-schedule performance for the operation we support.",
+              ],
+              [
+                "Safe operating practices",
+                "Documented safety expectations, reinforced and acknowledged.",
+              ],
               ["Well-maintained equipment", "Pre/post-trip discipline and real defect reporting."],
-              ["Disciplined communication", "Clear channels, clear escalation, current information."],
+              [
+                "Disciplined communication",
+                "Clear channels, clear escalation, current information.",
+              ],
               ["Strong people", "Professional drivers who take responsibility for the work."],
               ["Clear expectations", "Nothing important left implied or undocumented."],
             ].map(([title, body]) => (
@@ -89,7 +100,9 @@ function About() {
             <dl className="mt-5 space-y-5 text-sm">
               <div>
                 <dt className="font-semibold">Location</dt>
-                <dd className="mt-1 text-muted-foreground">Harrisburg, Pennsylvania — our only operating location.</dd>
+                <dd className="mt-1 text-muted-foreground">
+                  Harrisburg, Pennsylvania — our only operating location.
+                </dd>
               </div>
               <div>
                 <dt className="font-semibold">Terminal</dt>
@@ -97,7 +110,9 @@ function About() {
               </div>
               <div>
                 <dt className="font-semibold">Service type</dt>
-                <dd className="mt-1 text-muted-foreground">Linehaul, P&amp;D, hybrid and spare assignments.</dd>
+                <dd className="mt-1 text-muted-foreground">
+                  Linehaul, P&amp;D, hybrid and spare assignments.
+                </dd>
               </div>
               <div>
                 <dt className="font-semibold">Approved unit identifiers</dt>

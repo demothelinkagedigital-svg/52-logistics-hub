@@ -17,7 +17,10 @@ export const Route = createFileRoute("/auth")({
           "Sign in to the 52 Logistics, Inc. Driver Portal for applications, onboarding, safety material and announcements.",
       },
       { property: "og:title", content: "Driver Portal Sign In — 52 Logistics, Inc." },
-      { property: "og:description", content: "Secure sign in for 52 Logistics drivers, applicants and staff." },
+      {
+        property: "og:description",
+        content: "Secure sign in for 52 Logistics drivers, applicants and staff.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -177,7 +180,10 @@ function Auth() {
           </button>
         </p>
 
-        <Link to="/" className="mt-6 block text-center text-xs text-ink-muted hover:text-ink-foreground">
+        <Link
+          to="/"
+          className="mt-6 block text-center text-xs text-ink-muted hover:text-ink-foreground"
+        >
           Back to site
         </Link>
       </div>

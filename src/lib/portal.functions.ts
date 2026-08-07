@@ -16,7 +16,9 @@ export const getMyPortal = createServerFn({ method: "GET" })
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase
         .from("applications")
-        .select("id, reference_code, position_title, status, current_step, submitted_at, updated_at")
+        .select(
+          "id, reference_code, position_title, status, current_step, submitted_at, updated_at",
+        )
         .eq("user_id", userId)
         .order("created_at", { ascending: false }),
       supabase.from("drivers").select("*").eq("user_id", userId).maybeSingle(),
@@ -60,7 +62,10 @@ export const startApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { position_title?: string; job_id?: string }) =>
     z
-      .object({ position_title: z.string().max(160).optional(), job_id: z.string().uuid().optional() })
+      .object({
+        position_title: z.string().max(160).optional(),
+        job_id: z.string().uuid().optional(),
+      })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -105,13 +110,10 @@ export const saveApplicationDraft = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
 export const saveEmployers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ id: z.string().uuid(), employers: z.array(employerSchema).max(10) })
-      .parse(input),
+    z.object({ id: z.string().uuid(), employers: z.array(employerSchema).max(10) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -190,7 +192,9 @@ export const deleteDocument = createServerFn({ method: "POST" })
 export const submitApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ id: z.string().uuid(), signature_name: z.string().trim().min(2).max(120) }).parse(input),
+    z
+      .object({ id: z.string().uuid(), signature_name: z.string().trim().min(2).max(120) })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;

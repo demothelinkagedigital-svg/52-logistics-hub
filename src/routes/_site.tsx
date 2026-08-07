@@ -17,7 +17,8 @@ export const Route = createFileRoute("/_site")({
     <div className="container-page py-24">
       <h1 className="display-lg">Something went wrong</h1>
       <p className="mt-3 text-muted-foreground">
-        This page could not load. Please refresh, or email office@52logisticsinc.com if it keeps happening.
+        This page could not load. Please refresh, or email office@52logisticsinc.com if it keeps
+        happening.
       </p>
     </div>
   ),

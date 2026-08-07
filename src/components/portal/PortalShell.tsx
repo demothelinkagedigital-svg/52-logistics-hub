@@ -1,11 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
-import {
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 import { LOGO_URL, COMPANY } from "@/lib/brand";
 import { useSession, useSignOut, ROLE_LABELS } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -54,12 +49,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="container-page flex flex-1 gap-8 py-6 lg:py-10">
-        <aside
-          className={cn(
-            "w-full shrink-0 lg:block lg:w-60",
-            open ? "block" : "hidden",
-          )}
-        >
+        <aside className={cn("w-full shrink-0 lg:block lg:w-60", open ? "block" : "hidden")}>
           <nav aria-label="Portal" className="flex flex-col gap-1 lg:sticky lg:top-24">
             {nav.map((item) => (
               <Link
@@ -103,6 +93,8 @@ export function PortalHeading({
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("rounded-sm border border-border bg-surface p-6", className)}>{children}</div>
+    <div className={cn("rounded-sm border border-border bg-surface p-6", className)}>
+      {children}
+    </div>
   );
 }

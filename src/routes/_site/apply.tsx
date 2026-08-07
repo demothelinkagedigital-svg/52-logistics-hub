@@ -62,8 +62,8 @@ function Apply() {
       </div>
 
       <p className="mt-10 border-t border-border pt-6 text-xs leading-relaxed text-muted-foreground">
-        Submitting an application does not guarantee employment or an interview. All applications are
-        reviewed by a person; no automated hire or reject decisions are made. Where applicable,
+        Submitting an application does not guarantee employment or an interview. All applications
+        are reviewed by a person; no automated hire or reject decisions are made. Where applicable,
         screening is completed through First Advantage, our external provider. 52 Logistics, Inc. is
         an equal opportunity employer.
       </p>
