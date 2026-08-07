@@ -13,6 +13,7 @@ import { Route as SiteRouteImport } from './routes/_site'
 import { Route as SiteIndexRouteImport } from './routes/_site/index'
 import { Route as SiteAboutRouteImport } from './routes/_site/about'
 import { Route as SiteCareersRouteImport } from './routes/_site/careers'
+import { Route as SiteFaqRouteImport } from './routes/_site/faq'
 
 const SiteRoute = SiteRouteImport.update({
   id: '/_site',
@@ -33,15 +34,22 @@ const SiteCareersRoute = SiteCareersRouteImport.update({
   path: '/careers',
   getParentRoute: () => SiteRoute,
 } as any)
+const SiteFaqRoute = SiteFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => SiteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
   '/about': typeof SiteAboutRoute
   '/careers': typeof SiteCareersRoute
+  '/faq': typeof SiteFaqRoute
 }
 export interface FileRoutesByTo {
   '/about': typeof SiteAboutRoute
   '/careers': typeof SiteCareersRoute
+  '/faq': typeof SiteFaqRoute
   '/': typeof SiteIndexRoute
 }
 export interface FileRoutesById {
@@ -49,14 +57,21 @@ export interface FileRoutesById {
   '/_site': typeof SiteRouteWithChildren
   '/_site/about': typeof SiteAboutRoute
   '/_site/careers': typeof SiteCareersRoute
+  '/_site/faq': typeof SiteFaqRoute
   '/_site/': typeof SiteIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/careers'
+  fullPaths: '/' | '/about' | '/careers' | '/faq'
   fileRoutesByTo: FileRoutesByTo
-  to: '/about' | '/careers' | '/'
-  id: '__root__' | '/_site' | '/_site/about' | '/_site/careers' | '/_site/'
+  to: '/about' | '/careers' | '/faq' | '/'
+  id:
+    | '__root__'
+    | '/_site'
+    | '/_site/about'
+    | '/_site/careers'
+    | '/_site/faq'
+    | '/_site/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,18 +108,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteCareersRouteImport
       parentRoute: typeof SiteRoute
     }
+    '/_site/faq': {
+      id: '/_site/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof SiteFaqRouteImport
+      parentRoute: typeof SiteRoute
+    }
   }
 }
 
 interface SiteRouteChildren {
   SiteAboutRoute: typeof SiteAboutRoute
   SiteCareersRoute: typeof SiteCareersRoute
+  SiteFaqRoute: typeof SiteFaqRoute
   SiteIndexRoute: typeof SiteIndexRoute
 }
 
 const SiteRouteChildren: SiteRouteChildren = {
   SiteAboutRoute: SiteAboutRoute,
   SiteCareersRoute: SiteCareersRoute,
+  SiteFaqRoute: SiteFaqRoute,
   SiteIndexRoute: SiteIndexRoute,
 }
 
