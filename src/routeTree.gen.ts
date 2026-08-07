@@ -18,6 +18,7 @@ import { Route as SiteContactRouteImport } from './routes/_site/contact'
 import { Route as SiteDriverResourcesRouteImport } from './routes/_site/driver-resources'
 import { Route as SiteFaqRouteImport } from './routes/_site/faq'
 import { Route as SitePrivacyRouteImport } from './routes/_site/privacy'
+import { Route as SiteTermsRouteImport } from './routes/_site/terms'
 
 const SiteRoute = SiteRouteImport.update({
   id: '/_site',
@@ -63,6 +64,11 @@ const SitePrivacyRoute = SitePrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => SiteRoute,
 } as any)
+const SiteTermsRoute = SiteTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => SiteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/driver-resources': typeof SiteDriverResourcesRoute
   '/faq': typeof SiteFaqRoute
   '/privacy': typeof SitePrivacyRoute
+  '/terms': typeof SiteTermsRoute
 }
 export interface FileRoutesByTo {
   '/about': typeof SiteAboutRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/driver-resources': typeof SiteDriverResourcesRoute
   '/faq': typeof SiteFaqRoute
   '/privacy': typeof SitePrivacyRoute
+  '/terms': typeof SiteTermsRoute
   '/': typeof SiteIndexRoute
 }
 export interface FileRoutesById {
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/_site/driver-resources': typeof SiteDriverResourcesRoute
   '/_site/faq': typeof SiteFaqRoute
   '/_site/privacy': typeof SitePrivacyRoute
+  '/_site/terms': typeof SiteTermsRoute
   '/_site/': typeof SiteIndexRoute
 }
 export interface FileRouteTypes {
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/driver-resources'
     | '/faq'
     | '/privacy'
+    | '/terms'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/about'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/driver-resources'
     | '/faq'
     | '/privacy'
+    | '/terms'
     | '/'
   id:
     | '__root__'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/_site/driver-resources'
     | '/_site/faq'
     | '/_site/privacy'
+    | '/_site/terms'
     | '/_site/'
   fileRoutesById: FileRoutesById
 }
@@ -199,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitePrivacyRouteImport
       parentRoute: typeof SiteRoute
     }
+    '/_site/terms': {
+      id: '/_site/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof SiteTermsRouteImport
+      parentRoute: typeof SiteRoute
+    }
   }
 }
 
@@ -210,6 +229,7 @@ interface SiteRouteChildren {
   SiteDriverResourcesRoute: typeof SiteDriverResourcesRoute
   SiteFaqRoute: typeof SiteFaqRoute
   SitePrivacyRoute: typeof SitePrivacyRoute
+  SiteTermsRoute: typeof SiteTermsRoute
   SiteIndexRoute: typeof SiteIndexRoute
 }
 
@@ -221,6 +241,7 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteDriverResourcesRoute: SiteDriverResourcesRoute,
   SiteFaqRoute: SiteFaqRoute,
   SitePrivacyRoute: SitePrivacyRoute,
+  SiteTermsRoute: SiteTermsRoute,
   SiteIndexRoute: SiteIndexRoute,
 }
 
