@@ -92,14 +92,19 @@ export const saveApplicationDraft = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const patch: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data.values)) {
+      if (value !== undefined) patch[key] = value;
+    }
     const { error } = await supabase
       .from("applications")
-      .update(data.values)
+      .update(patch)
       .eq("id", data.id)
       .eq("user_id", userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 export const saveEmployers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
