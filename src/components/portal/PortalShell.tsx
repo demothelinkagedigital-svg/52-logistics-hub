@@ -23,14 +23,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
 
   const nav = [
-    { to: "/portal", label: "Dashboard", icon: LayoutDashboard, show: true, exact: true },
-    { to: "/portal/application", label: "My Application", icon: ClipboardList, show: true },
-    { to: "/portal/recruiting", label: "Recruiting", icon: Users, show: isRecruiter },
-    { to: "/portal/academy", label: "Driver Academy", icon: GraduationCap, show: true },
-    { to: "/portal/handbook", label: "Handbook", icon: BookOpen, show: true },
-    { to: "/portal/safety", label: "Safety Center", icon: ShieldCheck, show: true },
-    { to: "/portal/announcements", label: "Announcements", icon: Megaphone, show: true },
-    { to: "/portal/admin", label: "Administration", icon: Settings, show: isAdmin },
+    { to: "/portal" as const, label: "Dashboard", icon: LayoutDashboard, show: true, exact: true },
   ].filter((i) => i.show);
 
   return (
