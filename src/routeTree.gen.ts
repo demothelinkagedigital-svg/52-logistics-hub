@@ -14,6 +14,7 @@ import { Route as SiteIndexRouteImport } from './routes/_site/index'
 import { Route as SiteAboutRouteImport } from './routes/_site/about'
 import { Route as SiteCareersRouteImport } from './routes/_site/careers'
 import { Route as SiteContactRouteImport } from './routes/_site/contact'
+import { Route as SiteDriverResourcesRouteImport } from './routes/_site/driver-resources'
 import { Route as SiteFaqRouteImport } from './routes/_site/faq'
 
 const SiteRoute = SiteRouteImport.update({
@@ -40,6 +41,11 @@ const SiteContactRoute = SiteContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => SiteRoute,
 } as any)
+const SiteDriverResourcesRoute = SiteDriverResourcesRouteImport.update({
+  id: '/driver-resources',
+  path: '/driver-resources',
+  getParentRoute: () => SiteRoute,
+} as any)
 const SiteFaqRoute = SiteFaqRouteImport.update({
   id: '/faq',
   path: '/faq',
@@ -51,12 +57,14 @@ export interface FileRoutesByFullPath {
   '/about': typeof SiteAboutRoute
   '/careers': typeof SiteCareersRoute
   '/contact': typeof SiteContactRoute
+  '/driver-resources': typeof SiteDriverResourcesRoute
   '/faq': typeof SiteFaqRoute
 }
 export interface FileRoutesByTo {
   '/about': typeof SiteAboutRoute
   '/careers': typeof SiteCareersRoute
   '/contact': typeof SiteContactRoute
+  '/driver-resources': typeof SiteDriverResourcesRoute
   '/faq': typeof SiteFaqRoute
   '/': typeof SiteIndexRoute
 }
@@ -66,20 +74,23 @@ export interface FileRoutesById {
   '/_site/about': typeof SiteAboutRoute
   '/_site/careers': typeof SiteCareersRoute
   '/_site/contact': typeof SiteContactRoute
+  '/_site/driver-resources': typeof SiteDriverResourcesRoute
   '/_site/faq': typeof SiteFaqRoute
   '/_site/': typeof SiteIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/careers' | '/contact' | '/faq'
+  fullPaths:
+    '/' | '/about' | '/careers' | '/contact' | '/driver-resources' | '/faq'
   fileRoutesByTo: FileRoutesByTo
-  to: '/about' | '/careers' | '/contact' | '/faq' | '/'
+  to: '/about' | '/careers' | '/contact' | '/driver-resources' | '/faq' | '/'
   id:
     | '__root__'
     | '/_site'
     | '/_site/about'
     | '/_site/careers'
     | '/_site/contact'
+    | '/_site/driver-resources'
     | '/_site/faq'
     | '/_site/'
   fileRoutesById: FileRoutesById
@@ -125,6 +136,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteContactRouteImport
       parentRoute: typeof SiteRoute
     }
+    '/_site/driver-resources': {
+      id: '/_site/driver-resources'
+      path: '/driver-resources'
+      fullPath: '/driver-resources'
+      preLoaderRoute: typeof SiteDriverResourcesRouteImport
+      parentRoute: typeof SiteRoute
+    }
     '/_site/faq': {
       id: '/_site/faq'
       path: '/faq'
@@ -139,6 +157,7 @@ interface SiteRouteChildren {
   SiteAboutRoute: typeof SiteAboutRoute
   SiteCareersRoute: typeof SiteCareersRoute
   SiteContactRoute: typeof SiteContactRoute
+  SiteDriverResourcesRoute: typeof SiteDriverResourcesRoute
   SiteFaqRoute: typeof SiteFaqRoute
   SiteIndexRoute: typeof SiteIndexRoute
 }
@@ -147,6 +166,7 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteAboutRoute: SiteAboutRoute,
   SiteCareersRoute: SiteCareersRoute,
   SiteContactRoute: SiteContactRoute,
+  SiteDriverResourcesRoute: SiteDriverResourcesRoute,
   SiteFaqRoute: SiteFaqRoute,
   SiteIndexRoute: SiteIndexRoute,
 }
