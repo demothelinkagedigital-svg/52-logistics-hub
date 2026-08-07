@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SiteRouteImport } from './routes/_site'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as SiteIndexRouteImport } from './routes/_site/index'
 import { Route as SiteAboutRouteImport } from './routes/_site/about'
 import { Route as SiteAccessibilityRouteImport } from './routes/_site/accessibility'
@@ -24,6 +25,11 @@ import { Route as SiteTermsRouteImport } from './routes/_site/terms'
 
 const SiteRoute = SiteRouteImport.update({
   id: '/_site',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SiteIndexRoute = SiteIndexRouteImport.update({
@@ -84,6 +90,7 @@ const SiteTermsRoute = SiteTermsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
+  '/auth': typeof AuthRoute
   '/about': typeof SiteAboutRoute
   '/accessibility': typeof SiteAccessibilityRoute
   '/applicant-notice': typeof SiteApplicantNoticeRoute
@@ -96,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof SiteTermsRoute
 }
 export interface FileRoutesByTo {
+  '/auth': typeof AuthRoute
   '/about': typeof SiteAboutRoute
   '/accessibility': typeof SiteAccessibilityRoute
   '/applicant-notice': typeof SiteApplicantNoticeRoute
@@ -111,6 +119,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_site': typeof SiteRouteWithChildren
+  '/auth': typeof AuthRoute
   '/_site/about': typeof SiteAboutRoute
   '/_site/accessibility': typeof SiteAccessibilityRoute
   '/_site/applicant-notice': typeof SiteApplicantNoticeRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/about'
     | '/accessibility'
     | '/applicant-notice'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/terms'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/auth'
     | '/about'
     | '/accessibility'
     | '/applicant-notice'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_site'
+    | '/auth'
     | '/_site/about'
     | '/_site/accessibility'
     | '/_site/applicant-notice'
@@ -168,6 +180,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   SiteRoute: typeof SiteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -177,6 +190,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof SiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_site/': {
@@ -291,7 +311,18 @@ const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   SiteRoute: SiteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
