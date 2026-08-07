@@ -13,6 +13,7 @@ import { Route as SiteRouteImport } from './routes/_site'
 import { Route as SiteIndexRouteImport } from './routes/_site/index'
 import { Route as SiteAboutRouteImport } from './routes/_site/about'
 import { Route as SiteAccessibilityRouteImport } from './routes/_site/accessibility'
+import { Route as SiteApplicantNoticeRouteImport } from './routes/_site/applicant-notice'
 import { Route as SiteApplyRouteImport } from './routes/_site/apply'
 import { Route as SiteCareersRouteImport } from './routes/_site/careers'
 import { Route as SiteContactRouteImport } from './routes/_site/contact'
@@ -38,6 +39,11 @@ const SiteAboutRoute = SiteAboutRouteImport.update({
 const SiteAccessibilityRoute = SiteAccessibilityRouteImport.update({
   id: '/accessibility',
   path: '/accessibility',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteApplicantNoticeRoute = SiteApplicantNoticeRouteImport.update({
+  id: '/applicant-notice',
+  path: '/applicant-notice',
   getParentRoute: () => SiteRoute,
 } as any)
 const SiteApplyRoute = SiteApplyRouteImport.update({
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
   '/about': typeof SiteAboutRoute
   '/accessibility': typeof SiteAccessibilityRoute
+  '/applicant-notice': typeof SiteApplicantNoticeRoute
   '/apply': typeof SiteApplyRoute
   '/careers': typeof SiteCareersRoute
   '/contact': typeof SiteContactRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/about': typeof SiteAboutRoute
   '/accessibility': typeof SiteAccessibilityRoute
+  '/applicant-notice': typeof SiteApplicantNoticeRoute
   '/apply': typeof SiteApplyRoute
   '/careers': typeof SiteCareersRoute
   '/contact': typeof SiteContactRoute
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/_site': typeof SiteRouteWithChildren
   '/_site/about': typeof SiteAboutRoute
   '/_site/accessibility': typeof SiteAccessibilityRoute
+  '/_site/applicant-notice': typeof SiteApplicantNoticeRoute
   '/_site/apply': typeof SiteApplyRoute
   '/_site/careers': typeof SiteCareersRoute
   '/_site/contact': typeof SiteContactRoute
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/accessibility'
+    | '/applicant-notice'
     | '/apply'
     | '/careers'
     | '/contact'
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
   to:
     | '/about'
     | '/accessibility'
+    | '/applicant-notice'
     | '/apply'
     | '/careers'
     | '/contact'
@@ -144,6 +155,7 @@ export interface FileRouteTypes {
     | '/_site'
     | '/_site/about'
     | '/_site/accessibility'
+    | '/_site/applicant-notice'
     | '/_site/apply'
     | '/_site/careers'
     | '/_site/contact'
@@ -186,6 +198,13 @@ declare module '@tanstack/react-router' {
       path: '/accessibility'
       fullPath: '/accessibility'
       preLoaderRoute: typeof SiteAccessibilityRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/applicant-notice': {
+      id: '/_site/applicant-notice'
+      path: '/applicant-notice'
+      fullPath: '/applicant-notice'
+      preLoaderRoute: typeof SiteApplicantNoticeRouteImport
       parentRoute: typeof SiteRoute
     }
     '/_site/apply': {
@@ -243,6 +262,7 @@ declare module '@tanstack/react-router' {
 interface SiteRouteChildren {
   SiteAboutRoute: typeof SiteAboutRoute
   SiteAccessibilityRoute: typeof SiteAccessibilityRoute
+  SiteApplicantNoticeRoute: typeof SiteApplicantNoticeRoute
   SiteApplyRoute: typeof SiteApplyRoute
   SiteCareersRoute: typeof SiteCareersRoute
   SiteContactRoute: typeof SiteContactRoute
@@ -256,6 +276,7 @@ interface SiteRouteChildren {
 const SiteRouteChildren: SiteRouteChildren = {
   SiteAboutRoute: SiteAboutRoute,
   SiteAccessibilityRoute: SiteAccessibilityRoute,
+  SiteApplicantNoticeRoute: SiteApplicantNoticeRoute,
   SiteApplyRoute: SiteApplyRoute,
   SiteCareersRoute: SiteCareersRoute,
   SiteContactRoute: SiteContactRoute,
