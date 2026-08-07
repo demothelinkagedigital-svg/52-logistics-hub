@@ -79,7 +79,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.to}
                 to={item.to}
-                activeOptions={item.exact ? { exact: true } : undefined}
+                activeOptions={{ exact: item.exact === true }}
                 onClick={() => setOpen(false)}
                 className="inline-flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium text-foreground/75 transition-colors hover:bg-secondary data-[status=active]:bg-secondary data-[status=active]:text-primary"
               >
