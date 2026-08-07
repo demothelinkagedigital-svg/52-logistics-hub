@@ -98,7 +98,7 @@ export const saveApplicationDraft = createServerFn({ method: "POST" })
     }
     const { error } = await supabase
       .from("applications")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.id)
       .eq("user_id", userId);
     if (error) throw new Error(error.message);
