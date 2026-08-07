@@ -23,7 +23,8 @@ export const Route = createFileRoute("/_site/careers")({
       { property: "og:title", content: "CDL Careers & Open Positions — 52 Logistics, Inc." },
       {
         property: "og:description",
-        content: "Linehaul, P&D, hybrid and spare CDL openings at the Harrisburg operation, Terminal 170.",
+        content:
+          "Linehaul, P&D, hybrid and spare CDL openings at the Harrisburg operation, Terminal 170.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -73,7 +74,9 @@ function Careers() {
                         {job.status}
                       </span>
                     </div>
-                    <p className="mt-4 max-w-2xl leading-relaxed text-foreground/85">{job.summary}</p>
+                    <p className="mt-4 max-w-2xl leading-relaxed text-foreground/85">
+                      {job.summary}
+                    </p>
                     <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <RouteIcon className="size-4" aria-hidden="true" />
@@ -94,7 +97,10 @@ function Careers() {
                       className="group inline-flex items-center justify-center gap-2 rounded-sm bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
                     >
                       Apply for this role
-                      <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                      <ArrowRight
+                        className="size-4 transition-transform group-hover:translate-x-0.5"
+                        aria-hidden="true"
+                      />
                     </Link>
                   </div>
                 </div>
@@ -104,7 +110,10 @@ function Careers() {
         </Stagger>
       </section>
 
-      <section className="border-y border-border bg-surface-2 py-16 lg:py-20" aria-labelledby="req-heading">
+      <section
+        className="border-y border-border bg-surface-2 py-16 lg:py-20"
+        aria-labelledby="req-heading"
+      >
         <div className="container-page grid gap-12 lg:grid-cols-2">
           <Reveal>
             <p className="eyebrow text-accent">Requirements</p>
@@ -125,10 +134,26 @@ function Careers() {
             <h2 className="display-lg mt-3">What happens after you apply</h2>
             <ol className="mt-6 space-y-5">
               {[
-                ["01", "Recruiter review", "A member of our recruiting team reviews your application."],
-                ["02", "Conversation", "If your background fits an opening, we reach out to talk through the role."],
-                ["03", "Screening", "Where applicable, screening is completed through First Advantage, our external provider."],
-                ["04", "Onboarding", "Selected drivers receive a secure Driver Portal invitation and begin the Driver Academy."],
+                [
+                  "01",
+                  "Recruiter review",
+                  "A member of our recruiting team reviews your application.",
+                ],
+                [
+                  "02",
+                  "Conversation",
+                  "If your background fits an opening, we reach out to talk through the role.",
+                ],
+                [
+                  "03",
+                  "Screening",
+                  "Where applicable, screening is completed through First Advantage, our external provider.",
+                ],
+                [
+                  "04",
+                  "Onboarding",
+                  "Selected drivers receive a secure Driver Portal invitation and begin the Driver Academy.",
+                ],
               ].map(([n, title, body]) => (
                 <li key={n} className="flex gap-5">
                   <span className="font-mono text-sm font-semibold text-accent">{n}</span>

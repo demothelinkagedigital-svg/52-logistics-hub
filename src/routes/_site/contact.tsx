@@ -60,7 +60,9 @@ function Contact() {
         <Reveal delay={0.08} className="panel p-7">
           <Building2 className="size-6 text-accent" aria-hidden="true" />
           <h2 className="mt-4 text-lg font-bold">Office</h2>
-          <p className="mt-2 text-sm text-muted-foreground">General and administrative inquiries.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            General and administrative inquiries.
+          </p>
           <a
             href={`mailto:${s["office_email"]}`}
             className="mt-4 inline-block break-all font-medium text-primary underline-offset-4 hover:underline"

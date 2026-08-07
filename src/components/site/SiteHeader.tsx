@@ -17,7 +17,13 @@ export function SiteHeader() {
           aria-label={`${COMPANY} — home`}
           onClick={() => setOpen(false)}
         >
-          <img src={LOGO_URL} alt={`${COMPANY} logo`} className="h-11 w-auto" width={132} height={44} />
+          <img
+            src={LOGO_URL}
+            alt={`${COMPANY} logo`}
+            className="h-11 w-auto"
+            width={132}
+            height={44}
+          />
           <span className="sr-only">{COMPANY}</span>
         </Link>
 
@@ -46,7 +52,10 @@ export function SiteHeader() {
             className="group inline-flex items-center gap-2 rounded-sm bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground transition-transform hover:-translate-y-px"
           >
             Apply Now
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            <ArrowRight
+              className="size-4 transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            />
           </Link>
         </div>
 
@@ -57,7 +66,11 @@ export function SiteHeader() {
           aria-controls="mobile-nav"
           className="inline-flex size-11 items-center justify-center rounded-sm border border-input lg:hidden"
         >
-          {open ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
+          {open ? (
+            <X className="size-5" aria-hidden="true" />
+          ) : (
+            <Menu className="size-5" aria-hidden="true" />
+          )}
           <span className="sr-only">{open ? "Close menu" : "Open menu"}</span>
         </button>
       </div>

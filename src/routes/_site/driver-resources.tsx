@@ -14,7 +14,8 @@ export const Route = createFileRoute("/_site/driver-resources")({
       { property: "og:title", content: "Driver Resources — 52 Logistics, Inc." },
       {
         property: "og:description",
-        content: "Driver Academy, Safety Center and required apps — inside the authenticated Driver Portal.",
+        content:
+          "Driver Academy, Safety Center and required apps — inside the authenticated Driver Portal.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -24,12 +25,36 @@ export const Route = createFileRoute("/_site/driver-resources")({
 });
 
 const MODULES = [
-  ["Module 1", "Company expectations", "Who we are, how the operation runs, and the standard every driver is held to."],
-  ["Module 2", "Driver handbook", "The current handbook version, with acknowledgement recorded to your profile."],
-  ["Module 3", "Required apps & systems", "Motive, Whip Around, MyFleetAI / Linehaul Central and Trip Buddy setup."],
-  ["Module 4", "Safety fundamentals", "Hours of Service, DVIR, fatigue management and defensive driving."],
-  ["Module 5", "Terminal & gate procedure", "Terminal 170 arrival, yard movement, gate and dispatch process."],
-  ["Module 6", "Final verification", "Knowledge check and management verification before operational release."],
+  [
+    "Module 1",
+    "Company expectations",
+    "Who we are, how the operation runs, and the standard every driver is held to.",
+  ],
+  [
+    "Module 2",
+    "Driver handbook",
+    "The current handbook version, with acknowledgement recorded to your profile.",
+  ],
+  [
+    "Module 3",
+    "Required apps & systems",
+    "Motive, Whip Around, MyFleetAI / Linehaul Central and Trip Buddy setup.",
+  ],
+  [
+    "Module 4",
+    "Safety fundamentals",
+    "Hours of Service, DVIR, fatigue management and defensive driving.",
+  ],
+  [
+    "Module 5",
+    "Terminal & gate procedure",
+    "Terminal 170 arrival, yard movement, gate and dispatch process.",
+  ],
+  [
+    "Module 6",
+    "Final verification",
+    "Knowledge check and management verification before operational release.",
+  ],
 ];
 
 const APPS = [
@@ -48,8 +73,9 @@ function DriverResources() {
           <p className="eyebrow text-accent">Driver resources</p>
           <h1 className="display-xl mt-5 text-ink-foreground">What's inside the Driver Portal.</h1>
           <p className="mt-7 text-lg leading-relaxed text-ink-muted">
-            Onboarding, safety material, announcements and required systems live in one authenticated
-            place. This page is a public preview — full content requires a Driver Portal account.
+            Onboarding, safety material, announcements and required systems live in one
+            authenticated place. This page is a public preview — full content requires a Driver
+            Portal account.
           </p>
           <div className="mt-8 inline-flex items-center gap-3 border border-ink-border px-4 py-3 text-sm text-ink-muted">
             <Lock className="size-4 shrink-0 text-accent" aria-hidden="true" />
@@ -72,7 +98,9 @@ function DriverResources() {
         <Stagger className="mt-8 grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
           {MODULES.map(([label, title, body]) => (
             <StaggerItem key={label} className="bg-surface p-6">
-              <p className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">{label}</p>
+              <p className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">
+                {label}
+              </p>
               <h3 className="mt-3 text-lg font-bold">{title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
             </StaggerItem>
@@ -80,7 +108,10 @@ function DriverResources() {
         </Stagger>
       </section>
 
-      <section className="border-y border-border bg-surface-2 py-16 lg:py-20" aria-labelledby="safety-heading">
+      <section
+        className="border-y border-border bg-surface-2 py-16 lg:py-20"
+        aria-labelledby="safety-heading"
+      >
         <div className="container-page grid gap-12 lg:grid-cols-2">
           <Reveal>
             <ShieldCheck className="size-7 text-accent" aria-hidden="true" />
@@ -88,8 +119,8 @@ function DriverResources() {
               Safety Center
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Safety topics are versioned, owned and review-dated. Material is summarized and linked to
-              official sources rather than copied wholesale.
+              Safety topics are versioned, owned and review-dated. Material is summarized and linked
+              to official sources rather than copied wholesale.
             </p>
             <ul className="mt-6 space-y-2.5 text-sm text-foreground/85">
               {[

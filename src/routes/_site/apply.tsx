@@ -2,9 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, ClipboardList } from "lucide-react";
 
 export const Route = createFileRoute("/_site/apply")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    position: typeof search["position"] === "string" ? (search["position"] as string) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { position?: string } =>
+    typeof search["position"] === "string" ? { position: search["position"] } : {},
+
   head: () => ({
     meta: [
       { title: "Apply — Driver Application | 52 Logistics, Inc." },
@@ -62,8 +62,8 @@ function Apply() {
       </div>
 
       <p className="mt-10 border-t border-border pt-6 text-xs leading-relaxed text-muted-foreground">
-        Submitting an application does not guarantee employment or an interview. All applications are
-        reviewed by a person; no automated hire or reject decisions are made. Where applicable,
+        Submitting an application does not guarantee employment or an interview. All applications
+        are reviewed by a person; no automated hire or reject decisions are made. Where applicable,
         screening is completed through First Advantage, our external provider. 52 Logistics, Inc. is
         an equal opportunity employer.
       </p>

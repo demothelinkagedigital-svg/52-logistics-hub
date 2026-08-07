@@ -38,18 +38,27 @@ export function SiteFooter({
           <ul className="mt-4 space-y-2.5 text-sm">
             {PUBLIC_NAV.map((i) => (
               <li key={i.to}>
-                <Link to={i.to} className="text-ink-muted transition-colors hover:text-ink-foreground">
+                <Link
+                  to={i.to}
+                  className="text-ink-muted transition-colors hover:text-ink-foreground"
+                >
                   {i.label}
                 </Link>
               </li>
             ))}
             <li>
-              <Link to="/apply" className="text-ink-muted transition-colors hover:text-ink-foreground">
+              <Link
+                to="/apply"
+                className="text-ink-muted transition-colors hover:text-ink-foreground"
+              >
                 Apply
               </Link>
             </li>
             <li>
-              <Link to="/auth" className="text-ink-muted transition-colors hover:text-ink-foreground">
+              <Link
+                to="/auth"
+                className="text-ink-muted transition-colors hover:text-ink-foreground"
+              >
                 Driver Portal
               </Link>
             </li>
@@ -60,7 +69,9 @@ export function SiteFooter({
           <h2 className="eyebrow text-accent">Contact</h2>
           <ul className="mt-4 space-y-2.5 text-sm">
             <li>
-              <span className="block text-xs uppercase tracking-wide text-ink-muted">Recruiting</span>
+              <span className="block text-xs uppercase tracking-wide text-ink-muted">
+                Recruiting
+              </span>
               <a
                 href={`mailto:${settings["email_recruiting"]}`}
                 className="font-medium text-ink-foreground underline-offset-4 hover:underline"
@@ -69,7 +80,9 @@ export function SiteFooter({
               </a>
             </li>
             <li>
-              <span className="block text-xs uppercase tracking-wide text-ink-muted">General office</span>
+              <span className="block text-xs uppercase tracking-wide text-ink-muted">
+                General office
+              </span>
               <a
                 href={`mailto:${settings["email_office"]}`}
                 className="font-medium text-ink-foreground underline-offset-4 hover:underline"
@@ -82,8 +95,8 @@ export function SiteFooter({
           <h2 className="eyebrow mt-8 text-accent">Follow</h2>
           {active.length === 0 && !indeed ? (
             <p className="mt-3 text-sm text-ink-muted">
-              Social profiles are not published yet. They are configured from the admin settings once
-              verified.
+              Social profiles are not published yet. They are configured from the admin settings
+              once verified.
             </p>
           ) : (
             <ul className="mt-3 flex flex-wrap gap-2">
