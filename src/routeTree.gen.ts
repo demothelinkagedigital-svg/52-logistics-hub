@@ -9,61 +9,310 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as SiteRouteImport } from './routes/_site'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as SiteIndexRouteImport } from './routes/_site/index'
+import { Route as SiteAboutRouteImport } from './routes/_site/about'
+import { Route as SiteAccessibilityRouteImport } from './routes/_site/accessibility'
+import { Route as SiteApplicantNoticeRouteImport } from './routes/_site/applicant-notice'
+import { Route as SiteApplyRouteImport } from './routes/_site/apply'
+import { Route as SiteCareersRouteImport } from './routes/_site/careers'
+import { Route as SiteContactRouteImport } from './routes/_site/contact'
+import { Route as SiteDriverResourcesRouteImport } from './routes/_site/driver-resources'
+import { Route as SiteFaqRouteImport } from './routes/_site/faq'
+import { Route as SitePrivacyRouteImport } from './routes/_site/privacy'
+import { Route as SiteTermsRouteImport } from './routes/_site/terms'
 
-const IndexRoute = IndexRouteImport.update({
+const SiteRoute = SiteRouteImport.update({
+  id: '/_site',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SiteIndexRoute = SiteIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteAboutRoute = SiteAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteAccessibilityRoute = SiteAccessibilityRouteImport.update({
+  id: '/accessibility',
+  path: '/accessibility',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteApplicantNoticeRoute = SiteApplicantNoticeRouteImport.update({
+  id: '/applicant-notice',
+  path: '/applicant-notice',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteApplyRoute = SiteApplyRouteImport.update({
+  id: '/apply',
+  path: '/apply',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteCareersRoute = SiteCareersRouteImport.update({
+  id: '/careers',
+  path: '/careers',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteContactRoute = SiteContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteDriverResourcesRoute = SiteDriverResourcesRouteImport.update({
+  id: '/driver-resources',
+  path: '/driver-resources',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteFaqRoute = SiteFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SitePrivacyRoute = SitePrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => SiteRoute,
+} as any)
+const SiteTermsRoute = SiteTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => SiteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof SiteIndexRoute
+  '/auth': typeof AuthRoute
+  '/about': typeof SiteAboutRoute
+  '/accessibility': typeof SiteAccessibilityRoute
+  '/applicant-notice': typeof SiteApplicantNoticeRoute
+  '/apply': typeof SiteApplyRoute
+  '/careers': typeof SiteCareersRoute
+  '/contact': typeof SiteContactRoute
+  '/driver-resources': typeof SiteDriverResourcesRoute
+  '/faq': typeof SiteFaqRoute
+  '/privacy': typeof SitePrivacyRoute
+  '/terms': typeof SiteTermsRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/about': typeof SiteAboutRoute
+  '/accessibility': typeof SiteAccessibilityRoute
+  '/applicant-notice': typeof SiteApplicantNoticeRoute
+  '/apply': typeof SiteApplyRoute
+  '/careers': typeof SiteCareersRoute
+  '/contact': typeof SiteContactRoute
+  '/driver-resources': typeof SiteDriverResourcesRoute
+  '/faq': typeof SiteFaqRoute
+  '/privacy': typeof SitePrivacyRoute
+  '/terms': typeof SiteTermsRoute
+  '/': typeof SiteIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_site': typeof SiteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_site/about': typeof SiteAboutRoute
+  '/_site/accessibility': typeof SiteAccessibilityRoute
+  '/_site/applicant-notice': typeof SiteApplicantNoticeRoute
+  '/_site/apply': typeof SiteApplyRoute
+  '/_site/careers': typeof SiteCareersRoute
+  '/_site/contact': typeof SiteContactRoute
+  '/_site/driver-resources': typeof SiteDriverResourcesRoute
+  '/_site/faq': typeof SiteFaqRoute
+  '/_site/privacy': typeof SitePrivacyRoute
+  '/_site/terms': typeof SiteTermsRoute
+  '/_site/': typeof SiteIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/about'
+    | '/accessibility'
+    | '/applicant-notice'
+    | '/apply'
+    | '/careers'
+    | '/contact'
+    | '/driver-resources'
+    | '/faq'
+    | '/privacy'
+    | '/terms'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/auth'
+    | '/about'
+    | '/accessibility'
+    | '/applicant-notice'
+    | '/apply'
+    | '/careers'
+    | '/contact'
+    | '/driver-resources'
+    | '/faq'
+    | '/privacy'
+    | '/terms'
+    | '/'
+  id:
+    | '__root__'
+    | '/_site'
+    | '/auth'
+    | '/_site/about'
+    | '/_site/accessibility'
+    | '/_site/applicant-notice'
+    | '/_site/apply'
+    | '/_site/careers'
+    | '/_site/contact'
+    | '/_site/driver-resources'
+    | '/_site/faq'
+    | '/_site/privacy'
+    | '/_site/terms'
+    | '/_site/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  SiteRoute: typeof SiteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_site': {
+      id: '/_site'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof SiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_site/': {
+      id: '/_site/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof SiteIndexRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/about': {
+      id: '/_site/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof SiteAboutRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/accessibility': {
+      id: '/_site/accessibility'
+      path: '/accessibility'
+      fullPath: '/accessibility'
+      preLoaderRoute: typeof SiteAccessibilityRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/applicant-notice': {
+      id: '/_site/applicant-notice'
+      path: '/applicant-notice'
+      fullPath: '/applicant-notice'
+      preLoaderRoute: typeof SiteApplicantNoticeRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/apply': {
+      id: '/_site/apply'
+      path: '/apply'
+      fullPath: '/apply'
+      preLoaderRoute: typeof SiteApplyRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/careers': {
+      id: '/_site/careers'
+      path: '/careers'
+      fullPath: '/careers'
+      preLoaderRoute: typeof SiteCareersRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/contact': {
+      id: '/_site/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof SiteContactRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/driver-resources': {
+      id: '/_site/driver-resources'
+      path: '/driver-resources'
+      fullPath: '/driver-resources'
+      preLoaderRoute: typeof SiteDriverResourcesRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/faq': {
+      id: '/_site/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof SiteFaqRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/privacy': {
+      id: '/_site/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof SitePrivacyRouteImport
+      parentRoute: typeof SiteRoute
+    }
+    '/_site/terms': {
+      id: '/_site/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof SiteTermsRouteImport
+      parentRoute: typeof SiteRoute
     }
   }
 }
 
+interface SiteRouteChildren {
+  SiteAboutRoute: typeof SiteAboutRoute
+  SiteAccessibilityRoute: typeof SiteAccessibilityRoute
+  SiteApplicantNoticeRoute: typeof SiteApplicantNoticeRoute
+  SiteApplyRoute: typeof SiteApplyRoute
+  SiteCareersRoute: typeof SiteCareersRoute
+  SiteContactRoute: typeof SiteContactRoute
+  SiteDriverResourcesRoute: typeof SiteDriverResourcesRoute
+  SiteFaqRoute: typeof SiteFaqRoute
+  SitePrivacyRoute: typeof SitePrivacyRoute
+  SiteTermsRoute: typeof SiteTermsRoute
+  SiteIndexRoute: typeof SiteIndexRoute
+}
+
+const SiteRouteChildren: SiteRouteChildren = {
+  SiteAboutRoute: SiteAboutRoute,
+  SiteAccessibilityRoute: SiteAccessibilityRoute,
+  SiteApplicantNoticeRoute: SiteApplicantNoticeRoute,
+  SiteApplyRoute: SiteApplyRoute,
+  SiteCareersRoute: SiteCareersRoute,
+  SiteContactRoute: SiteContactRoute,
+  SiteDriverResourcesRoute: SiteDriverResourcesRoute,
+  SiteFaqRoute: SiteFaqRoute,
+  SitePrivacyRoute: SitePrivacyRoute,
+  SiteTermsRoute: SiteTermsRoute,
+  SiteIndexRoute: SiteIndexRoute,
+}
+
+const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  SiteRoute: SiteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
