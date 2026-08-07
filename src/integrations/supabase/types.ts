@@ -14,6 +14,441 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_modules: {
+        Row: {
+          content: string | null
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_required: boolean
+          published: boolean
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_required?: boolean
+          published?: boolean
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_required?: boolean
+          published?: boolean
+          slug?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      academy_progress: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          module_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          module_id: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          module_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_progress_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      announcements: {
+        Row: {
+          audience: string
+          body: string
+          created_at: string
+          id: string
+          pinned: boolean
+          published: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          body: string
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          published?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          body?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean
+          published?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      application_documents: {
+        Row: {
+          application_id: string
+          created_at: string
+          doc_type: string
+          file_name: string
+          id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          doc_type: string
+          file_name: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          user_id?: string
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          doc_type?: string
+          file_name?: string
+          id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_documents_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_employers: {
+        Row: {
+          application_id: string
+          city: string | null
+          created_at: string
+          employer_name: string
+          end_date: string | null
+          equipment_operated: string | null
+          id: string
+          phone: string | null
+          position_held: string | null
+          reason_for_leaving: string | null
+          sort_order: number
+          start_date: string | null
+          state: string | null
+          was_dot_regulated: boolean
+        }
+        Insert: {
+          application_id: string
+          city?: string | null
+          created_at?: string
+          employer_name: string
+          end_date?: string | null
+          equipment_operated?: string | null
+          id?: string
+          phone?: string | null
+          position_held?: string | null
+          reason_for_leaving?: string | null
+          sort_order?: number
+          start_date?: string | null
+          state?: string | null
+          was_dot_regulated?: boolean
+        }
+        Update: {
+          application_id?: string
+          city?: string | null
+          created_at?: string
+          employer_name?: string
+          end_date?: string | null
+          equipment_operated?: string | null
+          id?: string
+          phone?: string | null
+          position_held?: string | null
+          reason_for_leaving?: string | null
+          sort_order?: number
+          start_date?: string | null
+          state?: string | null
+          was_dot_regulated?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_employers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_events: {
+        Row: {
+          actor_id: string | null
+          application_id: string
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          metadata: Json
+        }
+        Insert: {
+          actor_id?: string | null
+          application_id: string
+          created_at?: string
+          description?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+        }
+        Update: {
+          actor_id?: string | null
+          application_id?: string
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_events_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      application_notes: {
+        Row: {
+          application_id: string
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          application_id: string
+          author_id?: string
+          body: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          application_id?: string
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_notes_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      applications: {
+        Row: {
+          accidents_last_3_years: string | null
+          additional_notes: string | null
+          address_line1: string | null
+          address_line2: string | null
+          age_21_or_older: boolean | null
+          authorized_to_work: boolean | null
+          can_perform_duties: boolean | null
+          cdl_class: string | null
+          cdl_expiration_date: string | null
+          cdl_issue_date: string | null
+          cdl_number: string | null
+          cdl_state: string | null
+          certified: boolean
+          city: string | null
+          completed_steps: number[]
+          created_at: string
+          current_step: number
+          date_of_birth: string | null
+          drug_test_details: string | null
+          email: string | null
+          endorsements: string[]
+          first_name: string | null
+          how_did_you_hear: string | null
+          id: string
+          job_id: string | null
+          last_name: string | null
+          license_ever_suspended: boolean | null
+          medical_card_expiration: string | null
+          middle_name: string | null
+          phone: string | null
+          position_title: string | null
+          positive_drug_test: boolean | null
+          postal_code: string | null
+          reference_code: string
+          signature_name: string | null
+          state: string | null
+          status: Database["public"]["Enums"]["application_status"]
+          submitted_at: string | null
+          suspension_details: string | null
+          twic_card: boolean
+          updated_at: string
+          user_id: string
+          violations_last_3_years: string | null
+          years_experience: number | null
+        }
+        Insert: {
+          accidents_last_3_years?: string | null
+          additional_notes?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          age_21_or_older?: boolean | null
+          authorized_to_work?: boolean | null
+          can_perform_duties?: boolean | null
+          cdl_class?: string | null
+          cdl_expiration_date?: string | null
+          cdl_issue_date?: string | null
+          cdl_number?: string | null
+          cdl_state?: string | null
+          certified?: boolean
+          city?: string | null
+          completed_steps?: number[]
+          created_at?: string
+          current_step?: number
+          date_of_birth?: string | null
+          drug_test_details?: string | null
+          email?: string | null
+          endorsements?: string[]
+          first_name?: string | null
+          how_did_you_hear?: string | null
+          id?: string
+          job_id?: string | null
+          last_name?: string | null
+          license_ever_suspended?: boolean | null
+          medical_card_expiration?: string | null
+          middle_name?: string | null
+          phone?: string | null
+          position_title?: string | null
+          positive_drug_test?: boolean | null
+          postal_code?: string | null
+          reference_code?: string
+          signature_name?: string | null
+          state?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          submitted_at?: string | null
+          suspension_details?: string | null
+          twic_card?: boolean
+          updated_at?: string
+          user_id?: string
+          violations_last_3_years?: string | null
+          years_experience?: number | null
+        }
+        Update: {
+          accidents_last_3_years?: string | null
+          additional_notes?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          age_21_or_older?: boolean | null
+          authorized_to_work?: boolean | null
+          can_perform_duties?: boolean | null
+          cdl_class?: string | null
+          cdl_expiration_date?: string | null
+          cdl_issue_date?: string | null
+          cdl_number?: string | null
+          cdl_state?: string | null
+          certified?: boolean
+          city?: string | null
+          completed_steps?: number[]
+          created_at?: string
+          current_step?: number
+          date_of_birth?: string | null
+          drug_test_details?: string | null
+          email?: string | null
+          endorsements?: string[]
+          first_name?: string | null
+          how_did_you_hear?: string | null
+          id?: string
+          job_id?: string | null
+          last_name?: string | null
+          license_ever_suspended?: boolean | null
+          medical_card_expiration?: string | null
+          middle_name?: string | null
+          phone?: string | null
+          position_title?: string | null
+          positive_drug_test?: boolean | null
+          postal_code?: string | null
+          reference_code?: string
+          signature_name?: string | null
+          state?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          submitted_at?: string | null
+          suspension_details?: string | null
+          twic_card?: boolean
+          updated_at?: string
+          user_id?: string
+          violations_last_3_years?: string | null
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -47,6 +482,112 @@ export type Database = {
         }
         Relationships: []
       }
+      drivers: {
+        Row: {
+          application_id: string | null
+          created_at: string
+          driver_code: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          hire_date: string | null
+          id: string
+          position_title: string | null
+          status: Database["public"]["Enums"]["driver_status"]
+          terminal: string
+          truck_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string
+          driver_code?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          hire_date?: string | null
+          id?: string
+          position_title?: string | null
+          status?: Database["public"]["Enums"]["driver_status"]
+          terminal?: string
+          truck_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string
+          driver_code?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          hire_date?: string | null
+          id?: string
+          position_title?: string | null
+          status?: Database["public"]["Enums"]["driver_status"]
+          terminal?: string
+          truck_number?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drivers_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esign_records: {
+        Row: {
+          application_id: string
+          completed_at: string | null
+          created_at: string
+          document_name: string
+          envelope_reference: string | null
+          id: string
+          notes: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["esign_status"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          application_id: string
+          completed_at?: string | null
+          created_at?: string
+          document_name?: string
+          envelope_reference?: string | null
+          id?: string
+          notes?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["esign_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          application_id?: string
+          completed_at?: string | null
+          created_at?: string
+          document_name?: string
+          envelope_reference?: string | null
+          id?: string
+          notes?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["esign_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esign_records_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faqs: {
         Row: {
           answer: string
@@ -70,6 +611,39 @@ export type Database = {
           published?: boolean
           question?: string
           sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      handbook_sections: {
+        Row: {
+          body: string
+          category: string
+          id: string
+          published: boolean
+          slug: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          category?: string
+          id?: string
+          published?: boolean
+          slug: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          category?: string
+          id?: string
+          published?: boolean
+          slug?: string
+          sort_order?: number
+          title?: string
           updated_at?: string
         }
         Relationships: []
@@ -209,6 +783,118 @@ export type Database = {
         }
         Relationships: []
       }
+      safety_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          id: string
+          resource_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          id?: string
+          resource_id: string
+          user_id?: string
+        }
+        Update: {
+          acknowledged_at?: string
+          id?: string
+          resource_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_acknowledgements_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "safety_resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      safety_resources: {
+        Row: {
+          body: string | null
+          category: string
+          id: string
+          published: boolean
+          requires_acknowledgement: boolean
+          sort_order: number
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          category?: string
+          id?: string
+          published?: boolean
+          requires_acknowledgement?: boolean
+          sort_order?: number
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          category?: string
+          id?: string
+          published?: boolean
+          requires_acknowledgement?: boolean
+          sort_order?: number
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      screening_records: {
+        Row: {
+          application_id: string
+          created_at: string
+          id: string
+          initiated_at: string | null
+          notes: string | null
+          reference_number: string | null
+          status: Database["public"]["Enums"]["screening_status"]
+          status_updated_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          id?: string
+          initiated_at?: string | null
+          notes?: string | null
+          reference_number?: string | null
+          status?: Database["public"]["Enums"]["screening_status"]
+          status_updated_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          id?: string
+          initiated_at?: string | null
+          notes?: string | null
+          reference_number?: string | null
+          status?: Database["public"]["Enums"]["screening_status"]
+          status_updated_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_records_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_settings: {
         Row: {
           group_name: string
@@ -305,6 +991,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_content_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_recruiting_staff: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
@@ -315,6 +1003,34 @@ export type Database = {
         | "driver"
         | "applicant"
         | "developer"
+      application_status:
+        | "draft"
+        | "submitted"
+        | "under_review"
+        | "screening"
+        | "interview"
+        | "conditional_offer"
+        | "background_check"
+        | "onboarding"
+        | "hired"
+        | "rejected"
+        | "withdrawn"
+      driver_status: "onboarding" | "active" | "inactive" | "terminated"
+      esign_status:
+        | "not_sent"
+        | "sent"
+        | "viewed"
+        | "completed"
+        | "declined"
+        | "voided"
+      screening_status:
+        | "not_started"
+        | "initiated"
+        | "pending"
+        | "clear"
+        | "review_required"
+        | "failed"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -449,6 +1165,37 @@ export const Constants = {
         "driver",
         "applicant",
         "developer",
+      ],
+      application_status: [
+        "draft",
+        "submitted",
+        "under_review",
+        "screening",
+        "interview",
+        "conditional_offer",
+        "background_check",
+        "onboarding",
+        "hired",
+        "rejected",
+        "withdrawn",
+      ],
+      driver_status: ["onboarding", "active", "inactive", "terminated"],
+      esign_status: [
+        "not_sent",
+        "sent",
+        "viewed",
+        "completed",
+        "declined",
+        "voided",
+      ],
+      screening_status: [
+        "not_started",
+        "initiated",
+        "pending",
+        "clear",
+        "review_required",
+        "failed",
+        "cancelled",
       ],
     },
   },
