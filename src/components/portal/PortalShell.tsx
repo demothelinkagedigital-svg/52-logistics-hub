@@ -53,7 +53,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
       show: isAdmin,
     },
     {
-      to: "/portal/admin/manage/$resource" as const,
+      to: "/portal/admin/manage/jobs" as const,
       label: "Manage content",
       icon: FileStack,
       show: isAdmin || isRecruiter,
