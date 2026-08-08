@@ -35,7 +35,13 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const nav = [
     { to: "/portal" as const, label: "Dashboard", icon: LayoutDashboard, show: true, exact: true },
     { to: "/portal/application" as const, label: "My application", icon: ClipboardList, show: true },
-    { to: "/portal/driver" as const, label: "Driver hub", icon: GraduationCap, show: isDriver },
+    { to: "/portal/driver" as const, label: "Driver hub", icon: Truck, show: isDriver },
+    {
+      to: "/portal/academy" as const,
+      label: "Driver Academy",
+      icon: GraduationCap,
+      show: isDriver || isAdmin,
+    },
     { to: "/portal/notifications" as const, label: "Notifications", icon: Bell, show: true },
     { to: "/portal/recruiting" as const, label: "Recruiting", icon: Users, show: isRecruiter },
     { to: "/portal/admin" as const, label: "Admin", icon: Shield, show: isAdmin, exact: true },
