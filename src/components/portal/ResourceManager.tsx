@@ -430,10 +430,11 @@ export function ResourceManager({
                 className="flex-1 space-y-4 px-5 py-5"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  saveMutation.mutate({
-                    id: editing === "new" ? undefined : String(editing[idColumn]),
-                    values: draft,
-                  });
+                  saveMutation.mutate(
+                    editing === "new"
+                      ? { values: draft }
+                      : { id: String(editing[idColumn]), values: draft },
+                  );
                 }}
               >
                 {view.fields.map((f) => (
