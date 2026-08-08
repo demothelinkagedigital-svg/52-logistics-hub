@@ -27,6 +27,7 @@ import { Route as AuthenticatedPortalApplicationRouteImport } from './routes/_au
 import { Route as AuthenticatedPortalDriverRouteImport } from './routes/_authenticated/portal.driver'
 import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal.notifications'
 import { Route as SiteCareersIndexRouteImport } from './routes/_site/careers.index'
+import { Route as SiteCareersSlugRouteImport } from './routes/_site/careers.$slug'
 import { Route as AuthenticatedPortalAcademyIndexRouteImport } from './routes/_authenticated/portal.academy.index'
 import { Route as AuthenticatedPortalAcademySlugRouteImport } from './routes/_authenticated/portal.academy.$slug'
 import { Route as AuthenticatedPortalAdminIndexRouteImport } from './routes/_authenticated/portal.admin.index'
@@ -128,6 +129,11 @@ const SiteCareersIndexRoute = SiteCareersIndexRouteImport.update({
   path: '/careers/',
   getParentRoute: () => SiteRoute,
 } as any)
+const SiteCareersSlugRoute = SiteCareersSlugRouteImport.update({
+  id: '/careers/$slug',
+  path: '/careers/$slug',
+  getParentRoute: () => SiteRoute,
+} as any)
 const AuthenticatedPortalAcademyIndexRoute =
   AuthenticatedPortalAcademyIndexRouteImport.update({
     id: '/portal/academy/',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/portal/application': typeof AuthenticatedPortalApplicationRoute
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
+  '/careers/$slug': typeof SiteCareersSlugRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
   '/careers/': typeof SiteCareersIndexRoute
   '/portal/academy/$slug': typeof AuthenticatedPortalAcademySlugRoute
@@ -218,6 +225,7 @@ export interface FileRoutesByTo {
   '/portal/application': typeof AuthenticatedPortalApplicationRoute
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
+  '/careers/$slug': typeof SiteCareersSlugRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
   '/careers': typeof SiteCareersIndexRoute
   '/portal/academy/$slug': typeof AuthenticatedPortalAcademySlugRoute
@@ -247,6 +255,7 @@ export interface FileRoutesById {
   '/_authenticated/portal/application': typeof AuthenticatedPortalApplicationRoute
   '/_authenticated/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
+  '/_site/careers/$slug': typeof SiteCareersSlugRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
   '/_site/careers/': typeof SiteCareersIndexRoute
   '/_authenticated/portal/academy/$slug': typeof AuthenticatedPortalAcademySlugRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/portal/application'
     | '/portal/driver'
     | '/portal/notifications'
+    | '/careers/$slug'
     | '/portal/'
     | '/careers/'
     | '/portal/academy/$slug'
@@ -301,6 +311,7 @@ export interface FileRouteTypes {
     | '/portal/application'
     | '/portal/driver'
     | '/portal/notifications'
+    | '/careers/$slug'
     | '/portal'
     | '/careers'
     | '/portal/academy/$slug'
@@ -329,6 +340,7 @@ export interface FileRouteTypes {
     | '/_authenticated/portal/application'
     | '/_authenticated/portal/driver'
     | '/_authenticated/portal/notifications'
+    | '/_site/careers/$slug'
     | '/_authenticated/portal/'
     | '/_site/careers/'
     | '/_authenticated/portal/academy/$slug'
@@ -475,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteCareersIndexRouteImport
       parentRoute: typeof SiteRoute
     }
+    '/_site/careers/$slug': {
+      id: '/_site/careers/$slug'
+      path: '/careers/$slug'
+      fullPath: '/careers/$slug'
+      preLoaderRoute: typeof SiteCareersSlugRouteImport
+      parentRoute: typeof SiteRoute
+    }
     '/_authenticated/portal/academy/': {
       id: '/_authenticated/portal/academy/'
       path: '/portal/academy'
@@ -581,6 +600,7 @@ interface SiteRouteChildren {
   SitePrivacyRoute: typeof SitePrivacyRoute
   SiteTermsRoute: typeof SiteTermsRoute
   SiteIndexRoute: typeof SiteIndexRoute
+  SiteCareersSlugRoute: typeof SiteCareersSlugRoute
   SiteCareersIndexRoute: typeof SiteCareersIndexRoute
 }
 
@@ -595,6 +615,7 @@ const SiteRouteChildren: SiteRouteChildren = {
   SitePrivacyRoute: SitePrivacyRoute,
   SiteTermsRoute: SiteTermsRoute,
   SiteIndexRoute: SiteIndexRoute,
+  SiteCareersSlugRoute: SiteCareersSlugRoute,
   SiteCareersIndexRoute: SiteCareersIndexRoute,
 }
 
@@ -608,3 +629,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
