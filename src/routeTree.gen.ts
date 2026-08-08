@@ -17,7 +17,6 @@ import { Route as SiteAboutRouteImport } from './routes/_site/about'
 import { Route as SiteAccessibilityRouteImport } from './routes/_site/accessibility'
 import { Route as SiteApplicantNoticeRouteImport } from './routes/_site/applicant-notice'
 import { Route as SiteApplyRouteImport } from './routes/_site/apply'
-import { Route as SiteCareersRouteImport } from './routes/_site/careers'
 import { Route as SiteContactRouteImport } from './routes/_site/contact'
 import { Route as SiteDriverResourcesRouteImport } from './routes/_site/driver-resources'
 import { Route as SiteFaqRouteImport } from './routes/_site/faq'
@@ -27,6 +26,7 @@ import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedPortalApplicationRouteImport } from './routes/_authenticated/portal.application'
 import { Route as AuthenticatedPortalDriverRouteImport } from './routes/_authenticated/portal.driver'
 import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal.notifications'
+import { Route as SiteCareersIndexRouteImport } from './routes/_site/careers.index'
 import { Route as AuthenticatedPortalAcademyIndexRouteImport } from './routes/_authenticated/portal.academy.index'
 import { Route as AuthenticatedPortalAcademySlugRouteImport } from './routes/_authenticated/portal.academy.$slug'
 import { Route as AuthenticatedPortalAdminIndexRouteImport } from './routes/_authenticated/portal.admin.index'
@@ -72,11 +72,6 @@ const SiteApplicantNoticeRoute = SiteApplicantNoticeRouteImport.update({
 const SiteApplyRoute = SiteApplyRouteImport.update({
   id: '/apply',
   path: '/apply',
-  getParentRoute: () => SiteRoute,
-} as any)
-const SiteCareersRoute = SiteCareersRouteImport.update({
-  id: '/careers',
-  path: '/careers',
   getParentRoute: () => SiteRoute,
 } as any)
 const SiteContactRoute = SiteContactRouteImport.update({
@@ -128,6 +123,11 @@ const AuthenticatedPortalNotificationsRoute =
     path: '/portal/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const SiteCareersIndexRoute = SiteCareersIndexRouteImport.update({
+  id: '/careers/',
+  path: '/careers/',
+  getParentRoute: () => SiteRoute,
+} as any)
 const AuthenticatedPortalAcademyIndexRoute =
   AuthenticatedPortalAcademyIndexRouteImport.update({
     id: '/portal/academy/',
@@ -184,7 +184,6 @@ export interface FileRoutesByFullPath {
   '/accessibility': typeof SiteAccessibilityRoute
   '/applicant-notice': typeof SiteApplicantNoticeRoute
   '/apply': typeof SiteApplyRoute
-  '/careers': typeof SiteCareersRoute
   '/contact': typeof SiteContactRoute
   '/driver-resources': typeof SiteDriverResourcesRoute
   '/faq': typeof SiteFaqRoute
@@ -194,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
+  '/careers/': typeof SiteCareersIndexRoute
   '/portal/academy/$slug': typeof AuthenticatedPortalAcademySlugRoute
   '/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
   '/portal/admin/audit': typeof AuthenticatedPortalAdminAuditRoute
@@ -210,7 +210,6 @@ export interface FileRoutesByTo {
   '/accessibility': typeof SiteAccessibilityRoute
   '/applicant-notice': typeof SiteApplicantNoticeRoute
   '/apply': typeof SiteApplyRoute
-  '/careers': typeof SiteCareersRoute
   '/contact': typeof SiteContactRoute
   '/driver-resources': typeof SiteDriverResourcesRoute
   '/faq': typeof SiteFaqRoute
@@ -220,6 +219,7 @@ export interface FileRoutesByTo {
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
+  '/careers': typeof SiteCareersIndexRoute
   '/portal/academy/$slug': typeof AuthenticatedPortalAcademySlugRoute
   '/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
   '/portal/admin/audit': typeof AuthenticatedPortalAdminAuditRoute
@@ -238,7 +238,6 @@ export interface FileRoutesById {
   '/_site/accessibility': typeof SiteAccessibilityRoute
   '/_site/applicant-notice': typeof SiteApplicantNoticeRoute
   '/_site/apply': typeof SiteApplyRoute
-  '/_site/careers': typeof SiteCareersRoute
   '/_site/contact': typeof SiteContactRoute
   '/_site/driver-resources': typeof SiteDriverResourcesRoute
   '/_site/faq': typeof SiteFaqRoute
@@ -249,6 +248,7 @@ export interface FileRoutesById {
   '/_authenticated/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
+  '/_site/careers/': typeof SiteCareersIndexRoute
   '/_authenticated/portal/academy/$slug': typeof AuthenticatedPortalAcademySlugRoute
   '/_authenticated/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
   '/_authenticated/portal/admin/audit': typeof AuthenticatedPortalAdminAuditRoute
@@ -267,7 +267,6 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/applicant-notice'
     | '/apply'
-    | '/careers'
     | '/contact'
     | '/driver-resources'
     | '/faq'
@@ -277,6 +276,7 @@ export interface FileRouteTypes {
     | '/portal/driver'
     | '/portal/notifications'
     | '/portal/'
+    | '/careers/'
     | '/portal/academy/$slug'
     | '/portal/admin/applications'
     | '/portal/admin/audit'
@@ -293,7 +293,6 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/applicant-notice'
     | '/apply'
-    | '/careers'
     | '/contact'
     | '/driver-resources'
     | '/faq'
@@ -303,6 +302,7 @@ export interface FileRouteTypes {
     | '/portal/driver'
     | '/portal/notifications'
     | '/portal'
+    | '/careers'
     | '/portal/academy/$slug'
     | '/portal/admin/applications'
     | '/portal/admin/audit'
@@ -320,7 +320,6 @@ export interface FileRouteTypes {
     | '/_site/accessibility'
     | '/_site/applicant-notice'
     | '/_site/apply'
-    | '/_site/careers'
     | '/_site/contact'
     | '/_site/driver-resources'
     | '/_site/faq'
@@ -331,6 +330,7 @@ export interface FileRouteTypes {
     | '/_authenticated/portal/driver'
     | '/_authenticated/portal/notifications'
     | '/_authenticated/portal/'
+    | '/_site/careers/'
     | '/_authenticated/portal/academy/$slug'
     | '/_authenticated/portal/admin/applications'
     | '/_authenticated/portal/admin/audit'
@@ -405,13 +405,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteApplyRouteImport
       parentRoute: typeof SiteRoute
     }
-    '/_site/careers': {
-      id: '/_site/careers'
-      path: '/careers'
-      fullPath: '/careers'
-      preLoaderRoute: typeof SiteCareersRouteImport
-      parentRoute: typeof SiteRoute
-    }
     '/_site/contact': {
       id: '/_site/contact'
       path: '/contact'
@@ -474,6 +467,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/notifications'
       preLoaderRoute: typeof AuthenticatedPortalNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_site/careers/': {
+      id: '/_site/careers/'
+      path: '/careers'
+      fullPath: '/careers/'
+      preLoaderRoute: typeof SiteCareersIndexRouteImport
+      parentRoute: typeof SiteRoute
     }
     '/_authenticated/portal/academy/': {
       id: '/_authenticated/portal/academy/'
@@ -575,13 +575,13 @@ interface SiteRouteChildren {
   SiteAccessibilityRoute: typeof SiteAccessibilityRoute
   SiteApplicantNoticeRoute: typeof SiteApplicantNoticeRoute
   SiteApplyRoute: typeof SiteApplyRoute
-  SiteCareersRoute: typeof SiteCareersRoute
   SiteContactRoute: typeof SiteContactRoute
   SiteDriverResourcesRoute: typeof SiteDriverResourcesRoute
   SiteFaqRoute: typeof SiteFaqRoute
   SitePrivacyRoute: typeof SitePrivacyRoute
   SiteTermsRoute: typeof SiteTermsRoute
   SiteIndexRoute: typeof SiteIndexRoute
+  SiteCareersIndexRoute: typeof SiteCareersIndexRoute
 }
 
 const SiteRouteChildren: SiteRouteChildren = {
@@ -589,13 +589,13 @@ const SiteRouteChildren: SiteRouteChildren = {
   SiteAccessibilityRoute: SiteAccessibilityRoute,
   SiteApplicantNoticeRoute: SiteApplicantNoticeRoute,
   SiteApplyRoute: SiteApplyRoute,
-  SiteCareersRoute: SiteCareersRoute,
   SiteContactRoute: SiteContactRoute,
   SiteDriverResourcesRoute: SiteDriverResourcesRoute,
   SiteFaqRoute: SiteFaqRoute,
   SitePrivacyRoute: SitePrivacyRoute,
   SiteTermsRoute: SiteTermsRoute,
   SiteIndexRoute: SiteIndexRoute,
+  SiteCareersIndexRoute: SiteCareersIndexRoute,
 }
 
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
