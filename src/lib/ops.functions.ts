@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -171,11 +172,18 @@ export type ResourceKey = keyof typeof RESOURCES;
 
 const resourceKey = z.enum(Object.keys(RESOURCES) as [ResourceKey, ...ResourceKey[]]);
 
-async function assertAccess(
-  supabase: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }> },
-  userId: string,
-  level: Access,
-) {
+/* Generic, table-name-driven query surface. The generated Supabase types are
+   keyed by literal table names, so the registry-driven screens use this loose
+   view of the same authenticated client. RLS and the registry still apply. */
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+export type ResourceRow = Record<string, Json>;
+type LooseClient = {
+  from: (table: string) => any;
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
+};
+const loose = (client: unknown) => client as LooseClient;
+
+async function assertAccess(supabase: LooseClient, userId: string, level: Access) {
   const rpcName =
     level === "admin" ? "has_role" : level === "content" ? "is_content_staff" : "is_recruiting_staff";
   const args =
@@ -199,14 +207,15 @@ export const listResource = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => z.object({ resource: resourceKey }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const db = loose(supabase);
     const def = RESOURCES[data.resource] as ResourceDef;
-    await assertAccess(supabase as never, userId, def.read);
-    const { data: rows, error } = await supabase
+    await assertAccess(db, userId, def.read);
+    const { data: rows, error } = await db
       .from(def.table)
       .select("*")
       .order(def.order.column, { ascending: def.order.ascending, nullsFirst: false });
     if (error) throw new Error(error.message);
-    return { rows: (rows ?? []) as Array<Record<string, unknown>> };
+    return { rows: (rows ?? []) as ResourceRow[] };
   });
 
 /* ------------------------------- write ----------------------------------- */
@@ -224,8 +233,9 @@ export const saveResource = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const db = loose(supabase);
     const def = RESOURCES[data.resource] as ResourceDef;
-    await assertAccess(supabase as never, userId, def.write);
+    await assertAccess(db, userId, def.write);
 
     const payload = pick(data.values, def.columns);
     if (!Object.keys(payload).length) throw new Error("Nothing to save.");
@@ -233,7 +243,7 @@ export const saveResource = createServerFn({ method: "POST" })
     let recordId = data.id ?? null;
     if (data.id) {
       const idColumn = def.table === "site_settings" ? "key" : "id";
-      const { error } = await supabase.from(def.table).update(payload).eq(idColumn, data.id);
+      const { error } = await db.from(def.table).update(payload).eq(idColumn, data.id);
       if (error) throw new Error(error.message);
     } else {
       const { data: inserted, error } = await supabase
@@ -242,10 +252,10 @@ export const saveResource = createServerFn({ method: "POST" })
         .select("*")
         .single();
       if (error) throw new Error(error.message);
-      recordId = (inserted as Record<string, string>)["id"] ?? null;
+      recordId = ((inserted as Record<string, string>)?.["id"] as string) ?? null;
     }
 
-    await supabase.from("audit_logs").insert({
+    await db.from("audit_logs").insert({
       actor_id: userId,
       action: data.id ? `${data.resource}_updated` : `${data.resource}_created`,
       target_type: data.resource,
@@ -263,8 +273,9 @@ export const archiveResource = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const db = loose(supabase);
     const def = RESOURCES[data.resource] as ResourceDef;
-    await assertAccess(supabase as never, userId, def.write);
+    await assertAccess(db, userId, def.write);
 
     if (def.archiveColumn) {
       const { error } = await supabase
@@ -276,11 +287,11 @@ export const archiveResource = createServerFn({ method: "POST" })
         .eq("id", data.id);
       if (error) throw new Error(error.message);
     } else {
-      const { error } = await supabase.from(def.table).delete().eq("id", data.id);
+      const { error } = await db.from(def.table).delete().eq("id", data.id);
       if (error) throw new Error(error.message);
     }
 
-    await supabase.from("audit_logs").insert({
+    await db.from("audit_logs").insert({
       actor_id: userId,
       action: data.restore ? `${data.resource}_restored` : `${data.resource}_archived`,
       target_type: data.resource,
@@ -297,10 +308,11 @@ export const duplicateResource = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const db = loose(supabase);
     const def = RESOURCES[data.resource] as ResourceDef;
-    await assertAccess(supabase as never, userId, def.write);
+    await assertAccess(db, userId, def.write);
 
-    const { data: row, error } = await supabase
+    const { data: row, error } = await db
       .from(def.table)
       .select("*")
       .eq("id", data.id)
@@ -318,21 +330,21 @@ export const duplicateResource = createServerFn({ method: "POST" })
     if ("published" in copy) copy["published"] = false;
     if ("status" in copy) copy["status"] = "draft";
 
-    const { data: inserted, error: insErr } = await supabase
+    const { data: inserted, error: insErr } = await db
       .from(def.table)
       .insert(copy)
       .select("id")
       .single();
     if (insErr) throw new Error(insErr.message);
 
-    await supabase.from("audit_logs").insert({
+    await db.from("audit_logs").insert({
       actor_id: userId,
       action: `${data.resource}_duplicated`,
       target_type: data.resource,
-      target_id: (inserted as { id: string }).id,
+      target_id: String((inserted as { id: string }).id),
       metadata: { source_id: data.id },
     });
-    return { ok: true, id: (inserted as { id: string }).id };
+    return { ok: true, id: String((inserted as { id: string }).id) };
   });
 
 export const reorderResource = createServerFn({ method: "POST" })
@@ -347,8 +359,9 @@ export const reorderResource = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const db = loose(supabase);
     const def = RESOURCES[data.resource] as ResourceDef;
-    await assertAccess(supabase as never, userId, def.write);
+    await assertAccess(db, userId, def.write);
     if (!def.columns.includes("sort_order")) throw new Error("This resource is not orderable.");
     for (const item of data.order) {
       const { error } = await supabase
