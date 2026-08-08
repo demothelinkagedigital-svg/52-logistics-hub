@@ -42,20 +42,30 @@ export const getMyApplication = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!app) return { application: null, employers: [], documents: [] };
-    const [empRes, docRes] = await Promise.all([
+    const appId = app?.id ?? "00000000-0000-0000-0000-000000000000";
+    const [empRes, docRes, evRes] = await Promise.all([
       supabase
         .from("application_employers")
         .select("*")
-        .eq("application_id", app.id)
+        .eq("application_id", appId)
         .order("sort_order"),
       supabase
         .from("application_documents")
         .select("*")
-        .eq("application_id", app.id)
+        .eq("application_id", appId)
         .order("created_at"),
+      supabase
+        .from("application_events")
+        .select("*")
+        .eq("application_id", appId)
+        .order("created_at", { ascending: false }),
     ]);
-    return { application: app, employers: empRes.data ?? [], documents: docRes.data ?? [] };
+    return {
+      application: app,
+      employers: empRes.data ?? [],
+      documents: docRes.data ?? [],
+      events: evRes.data ?? [],
+    };
   });
 
 export const startApplication = createServerFn({ method: "POST" })
@@ -198,18 +208,28 @@ export const submitApplication = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("applications")
       .update({
         status: "submitted",
         certified: true,
         signature_name: data.signature_name,
         submitted_at: new Date().toISOString(),
+        correction_notes: null,
         current_step: 6,
       })
       .eq("id", data.id)
       .eq("user_id", userId)
-      .eq("status", "draft");
+      .in("status", ["draft", "corrections_requested"])
+      .select("id, reference_code")
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (!updated) throw new Error("This application is locked and cannot be submitted again.");
+    await supabase.from("application_events").insert({
+      application_id: data.id,
+      actor_id: userId,
+      event_type: "submitted",
+      description: `Application ${updated.reference_code} submitted for review`,
+    });
     return { ok: true };
   });

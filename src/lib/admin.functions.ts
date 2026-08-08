@@ -121,3 +121,80 @@ export const listAuditLog = createServerFn({ method: "GET" })
       .limit(100);
     return data ?? [];
   });
+
+export const getAdminStats = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: isAdmin } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "administrator",
+    });
+    if (!isAdmin) throw new Error("Forbidden");
+    const [profileRes, roleRes, appRes, docRes, driverRes, auditRes] = await Promise.all([
+      supabase.from("profiles").select("id, status"),
+      supabase.from("user_roles").select("user_id, role"),
+      supabase.from("applications").select("id, status"),
+      supabase.from("application_documents").select("id, verification_status"),
+      supabase.from("drivers").select("id, status"),
+      supabase
+        .from("audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+    const roles = roleRes.data ?? [];
+    const apps = appRes.data ?? [];
+    const docs = docRes.data ?? [];
+    return {
+      users: (profileRes.data ?? []).length,
+      activeUsers: (profileRes.data ?? []).filter((p) => p.status === "active").length,
+      applicants: new Set(roles.filter((r) => r.role === "applicant").map((r) => r.user_id)).size,
+      recruiters: new Set(roles.filter((r) => r.role === "recruiter").map((r) => r.user_id)).size,
+      administrators: new Set(
+        roles.filter((r) => r.role === "administrator").map((r) => r.user_id),
+      ).size,
+      activeDrivers: (driverRes.data ?? []).filter((d) => d.status === "active").length,
+      pendingApplications: apps.filter((a) =>
+        ["submitted", "under_review", "corrections_requested"].includes(a.status),
+      ).length,
+      needsAttention: apps.filter((a) => a.status === "submitted").length,
+      documents: {
+        total: docs.length,
+        pending: docs.filter((d) => d.verification_status === "pending").length,
+        approved: docs.filter((d) => d.verification_status === "approved").length,
+        rejected: docs.filter((d) => d.verification_status === "rejected").length,
+      },
+      recentAudit: auditRes.data ?? [],
+    };
+  });
+
+export const setProfileStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({ user_id: z.string().uuid(), status: z.enum(["active", "suspended"]) })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: isAdmin } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "administrator",
+    });
+    if (!isAdmin) throw new Error("Forbidden");
+    if (data.user_id === userId) throw new Error("You cannot change your own account status.");
+    const { error } = await supabase
+      .from("profiles")
+      .update({ status: data.status })
+      .eq("id", data.user_id);
+    if (error) throw new Error(error.message);
+    await supabase.from("audit_logs").insert({
+      actor_id: userId,
+      action: `user_${data.status}`,
+      target_type: "user",
+      target_id: data.user_id,
+      metadata: { status: data.status },
+    });
+    return { ok: true };
+  });

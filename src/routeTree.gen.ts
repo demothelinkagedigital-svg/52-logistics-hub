@@ -24,6 +24,14 @@ import { Route as SiteFaqRouteImport } from './routes/_site/faq'
 import { Route as SitePrivacyRouteImport } from './routes/_site/privacy'
 import { Route as SiteTermsRouteImport } from './routes/_site/terms'
 import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenticated/portal.index'
+import { Route as AuthenticatedPortalApplicationRouteImport } from './routes/_authenticated/portal.application'
+import { Route as AuthenticatedPortalDriverRouteImport } from './routes/_authenticated/portal.driver'
+import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal.notifications'
+import { Route as AuthenticatedPortalAdminIndexRouteImport } from './routes/_authenticated/portal.admin.index'
+import { Route as AuthenticatedPortalAdminApplicationsRouteImport } from './routes/_authenticated/portal.admin.applications'
+import { Route as AuthenticatedPortalAdminAuditRouteImport } from './routes/_authenticated/portal.admin.audit'
+import { Route as AuthenticatedPortalRecruitingIndexRouteImport } from './routes/_authenticated/portal.recruiting.index'
+import { Route as AuthenticatedPortalRecruitingIdRouteImport } from './routes/_authenticated/portal.recruiting.$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -99,6 +107,54 @@ const AuthenticatedPortalIndexRoute =
     path: '/portal/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPortalApplicationRoute =
+  AuthenticatedPortalApplicationRouteImport.update({
+    id: '/portal/application',
+    path: '/portal/application',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPortalDriverRoute =
+  AuthenticatedPortalDriverRouteImport.update({
+    id: '/portal/driver',
+    path: '/portal/driver',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPortalNotificationsRoute =
+  AuthenticatedPortalNotificationsRouteImport.update({
+    id: '/portal/notifications',
+    path: '/portal/notifications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPortalAdminIndexRoute =
+  AuthenticatedPortalAdminIndexRouteImport.update({
+    id: '/portal/admin/',
+    path: '/portal/admin/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPortalAdminApplicationsRoute =
+  AuthenticatedPortalAdminApplicationsRouteImport.update({
+    id: '/portal/admin/applications',
+    path: '/portal/admin/applications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPortalAdminAuditRoute =
+  AuthenticatedPortalAdminAuditRouteImport.update({
+    id: '/portal/admin/audit',
+    path: '/portal/admin/audit',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPortalRecruitingIndexRoute =
+  AuthenticatedPortalRecruitingIndexRouteImport.update({
+    id: '/portal/recruiting/',
+    path: '/portal/recruiting/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPortalRecruitingIdRoute =
+  AuthenticatedPortalRecruitingIdRouteImport.update({
+    id: '/portal/recruiting/$id',
+    path: '/portal/recruiting/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
@@ -113,7 +169,15 @@ export interface FileRoutesByFullPath {
   '/faq': typeof SiteFaqRoute
   '/privacy': typeof SitePrivacyRoute
   '/terms': typeof SiteTermsRoute
+  '/portal/application': typeof AuthenticatedPortalApplicationRoute
+  '/portal/driver': typeof AuthenticatedPortalDriverRoute
+  '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
+  '/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
+  '/portal/admin/audit': typeof AuthenticatedPortalAdminAuditRoute
+  '/portal/recruiting/$id': typeof AuthenticatedPortalRecruitingIdRoute
+  '/portal/admin/': typeof AuthenticatedPortalAdminIndexRoute
+  '/portal/recruiting/': typeof AuthenticatedPortalRecruitingIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof SiteIndexRoute
@@ -128,7 +192,15 @@ export interface FileRoutesByTo {
   '/faq': typeof SiteFaqRoute
   '/privacy': typeof SitePrivacyRoute
   '/terms': typeof SiteTermsRoute
+  '/portal/application': typeof AuthenticatedPortalApplicationRoute
+  '/portal/driver': typeof AuthenticatedPortalDriverRoute
+  '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
+  '/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
+  '/portal/admin/audit': typeof AuthenticatedPortalAdminAuditRoute
+  '/portal/recruiting/$id': typeof AuthenticatedPortalRecruitingIdRoute
+  '/portal/admin': typeof AuthenticatedPortalAdminIndexRoute
+  '/portal/recruiting': typeof AuthenticatedPortalRecruitingIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -146,7 +218,15 @@ export interface FileRoutesById {
   '/_site/privacy': typeof SitePrivacyRoute
   '/_site/terms': typeof SiteTermsRoute
   '/_site/': typeof SiteIndexRoute
+  '/_authenticated/portal/application': typeof AuthenticatedPortalApplicationRoute
+  '/_authenticated/portal/driver': typeof AuthenticatedPortalDriverRoute
+  '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
+  '/_authenticated/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
+  '/_authenticated/portal/admin/audit': typeof AuthenticatedPortalAdminAuditRoute
+  '/_authenticated/portal/recruiting/$id': typeof AuthenticatedPortalRecruitingIdRoute
+  '/_authenticated/portal/admin/': typeof AuthenticatedPortalAdminIndexRoute
+  '/_authenticated/portal/recruiting/': typeof AuthenticatedPortalRecruitingIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -163,7 +243,15 @@ export interface FileRouteTypes {
     | '/faq'
     | '/privacy'
     | '/terms'
+    | '/portal/application'
+    | '/portal/driver'
+    | '/portal/notifications'
     | '/portal/'
+    | '/portal/admin/applications'
+    | '/portal/admin/audit'
+    | '/portal/recruiting/$id'
+    | '/portal/admin/'
+    | '/portal/recruiting/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -178,7 +266,15 @@ export interface FileRouteTypes {
     | '/faq'
     | '/privacy'
     | '/terms'
+    | '/portal/application'
+    | '/portal/driver'
+    | '/portal/notifications'
     | '/portal'
+    | '/portal/admin/applications'
+    | '/portal/admin/audit'
+    | '/portal/recruiting/$id'
+    | '/portal/admin'
+    | '/portal/recruiting'
   id:
     | '__root__'
     | '/_authenticated'
@@ -195,7 +291,15 @@ export interface FileRouteTypes {
     | '/_site/privacy'
     | '/_site/terms'
     | '/_site/'
+    | '/_authenticated/portal/application'
+    | '/_authenticated/portal/driver'
+    | '/_authenticated/portal/notifications'
     | '/_authenticated/portal/'
+    | '/_authenticated/portal/admin/applications'
+    | '/_authenticated/portal/admin/audit'
+    | '/_authenticated/portal/recruiting/$id'
+    | '/_authenticated/portal/admin/'
+    | '/_authenticated/portal/recruiting/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -311,15 +415,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/portal/application': {
+      id: '/_authenticated/portal/application'
+      path: '/portal/application'
+      fullPath: '/portal/application'
+      preLoaderRoute: typeof AuthenticatedPortalApplicationRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/portal/driver': {
+      id: '/_authenticated/portal/driver'
+      path: '/portal/driver'
+      fullPath: '/portal/driver'
+      preLoaderRoute: typeof AuthenticatedPortalDriverRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/portal/notifications': {
+      id: '/_authenticated/portal/notifications'
+      path: '/portal/notifications'
+      fullPath: '/portal/notifications'
+      preLoaderRoute: typeof AuthenticatedPortalNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/portal/admin/': {
+      id: '/_authenticated/portal/admin/'
+      path: '/portal/admin'
+      fullPath: '/portal/admin/'
+      preLoaderRoute: typeof AuthenticatedPortalAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/portal/admin/applications': {
+      id: '/_authenticated/portal/admin/applications'
+      path: '/portal/admin/applications'
+      fullPath: '/portal/admin/applications'
+      preLoaderRoute: typeof AuthenticatedPortalAdminApplicationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/portal/admin/audit': {
+      id: '/_authenticated/portal/admin/audit'
+      path: '/portal/admin/audit'
+      fullPath: '/portal/admin/audit'
+      preLoaderRoute: typeof AuthenticatedPortalAdminAuditRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/portal/recruiting/': {
+      id: '/_authenticated/portal/recruiting/'
+      path: '/portal/recruiting'
+      fullPath: '/portal/recruiting/'
+      preLoaderRoute: typeof AuthenticatedPortalRecruitingIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/portal/recruiting/$id': {
+      id: '/_authenticated/portal/recruiting/$id'
+      path: '/portal/recruiting/$id'
+      fullPath: '/portal/recruiting/$id'
+      preLoaderRoute: typeof AuthenticatedPortalRecruitingIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedPortalApplicationRoute: typeof AuthenticatedPortalApplicationRoute
+  AuthenticatedPortalDriverRoute: typeof AuthenticatedPortalDriverRoute
+  AuthenticatedPortalNotificationsRoute: typeof AuthenticatedPortalNotificationsRoute
   AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
+  AuthenticatedPortalAdminApplicationsRoute: typeof AuthenticatedPortalAdminApplicationsRoute
+  AuthenticatedPortalAdminAuditRoute: typeof AuthenticatedPortalAdminAuditRoute
+  AuthenticatedPortalRecruitingIdRoute: typeof AuthenticatedPortalRecruitingIdRoute
+  AuthenticatedPortalAdminIndexRoute: typeof AuthenticatedPortalAdminIndexRoute
+  AuthenticatedPortalRecruitingIndexRoute: typeof AuthenticatedPortalRecruitingIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedPortalApplicationRoute: AuthenticatedPortalApplicationRoute,
+  AuthenticatedPortalDriverRoute: AuthenticatedPortalDriverRoute,
+  AuthenticatedPortalNotificationsRoute: AuthenticatedPortalNotificationsRoute,
   AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
+  AuthenticatedPortalAdminApplicationsRoute:
+    AuthenticatedPortalAdminApplicationsRoute,
+  AuthenticatedPortalAdminAuditRoute: AuthenticatedPortalAdminAuditRoute,
+  AuthenticatedPortalRecruitingIdRoute: AuthenticatedPortalRecruitingIdRoute,
+  AuthenticatedPortalAdminIndexRoute: AuthenticatedPortalAdminIndexRoute,
+  AuthenticatedPortalRecruitingIndexRoute:
+    AuthenticatedPortalRecruitingIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
