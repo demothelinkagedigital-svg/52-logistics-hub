@@ -28,6 +28,7 @@ import { Route as AuthenticatedPortalApplicationRouteImport } from './routes/_au
 import { Route as AuthenticatedPortalDriverRouteImport } from './routes/_authenticated/portal.driver'
 import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal.notifications'
 import { Route as AuthenticatedPortalAdminIndexRouteImport } from './routes/_authenticated/portal.admin.index'
+import { Route as AuthenticatedPortalAdminApplicationsRouteImport } from './routes/_authenticated/portal.admin.applications'
 import { Route as AuthenticatedPortalRecruitingIndexRouteImport } from './routes/_authenticated/portal.recruiting.index'
 import { Route as AuthenticatedPortalRecruitingIdRouteImport } from './routes/_authenticated/portal.recruiting.$id'
 
@@ -129,6 +130,12 @@ const AuthenticatedPortalAdminIndexRoute =
     path: '/portal/admin/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPortalAdminApplicationsRoute =
+  AuthenticatedPortalAdminApplicationsRouteImport.update({
+    id: '/portal/admin/applications',
+    path: '/portal/admin/applications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPortalRecruitingIndexRoute =
   AuthenticatedPortalRecruitingIndexRouteImport.update({
     id: '/portal/recruiting/',
@@ -159,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
+  '/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
   '/portal/recruiting/$id': typeof AuthenticatedPortalRecruitingIdRoute
   '/portal/admin/': typeof AuthenticatedPortalAdminIndexRoute
   '/portal/recruiting/': typeof AuthenticatedPortalRecruitingIndexRoute
@@ -180,6 +188,7 @@ export interface FileRoutesByTo {
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
+  '/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
   '/portal/recruiting/$id': typeof AuthenticatedPortalRecruitingIdRoute
   '/portal/admin': typeof AuthenticatedPortalAdminIndexRoute
   '/portal/recruiting': typeof AuthenticatedPortalRecruitingIndexRoute
@@ -204,6 +213,7 @@ export interface FileRoutesById {
   '/_authenticated/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
+  '/_authenticated/portal/admin/applications': typeof AuthenticatedPortalAdminApplicationsRoute
   '/_authenticated/portal/recruiting/$id': typeof AuthenticatedPortalRecruitingIdRoute
   '/_authenticated/portal/admin/': typeof AuthenticatedPortalAdminIndexRoute
   '/_authenticated/portal/recruiting/': typeof AuthenticatedPortalRecruitingIndexRoute
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/portal/driver'
     | '/portal/notifications'
     | '/portal/'
+    | '/portal/admin/applications'
     | '/portal/recruiting/$id'
     | '/portal/admin/'
     | '/portal/recruiting/'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/portal/driver'
     | '/portal/notifications'
     | '/portal'
+    | '/portal/admin/applications'
     | '/portal/recruiting/$id'
     | '/portal/admin'
     | '/portal/recruiting'
@@ -271,6 +283,7 @@ export interface FileRouteTypes {
     | '/_authenticated/portal/driver'
     | '/_authenticated/portal/notifications'
     | '/_authenticated/portal/'
+    | '/_authenticated/portal/admin/applications'
     | '/_authenticated/portal/recruiting/$id'
     | '/_authenticated/portal/admin/'
     | '/_authenticated/portal/recruiting/'
@@ -417,6 +430,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalAdminIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/portal/admin/applications': {
+      id: '/_authenticated/portal/admin/applications'
+      path: '/portal/admin/applications'
+      fullPath: '/portal/admin/applications'
+      preLoaderRoute: typeof AuthenticatedPortalAdminApplicationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/portal/recruiting/': {
       id: '/_authenticated/portal/recruiting/'
       path: '/portal/recruiting'
@@ -439,6 +459,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPortalDriverRoute: typeof AuthenticatedPortalDriverRoute
   AuthenticatedPortalNotificationsRoute: typeof AuthenticatedPortalNotificationsRoute
   AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
+  AuthenticatedPortalAdminApplicationsRoute: typeof AuthenticatedPortalAdminApplicationsRoute
   AuthenticatedPortalRecruitingIdRoute: typeof AuthenticatedPortalRecruitingIdRoute
   AuthenticatedPortalAdminIndexRoute: typeof AuthenticatedPortalAdminIndexRoute
   AuthenticatedPortalRecruitingIndexRoute: typeof AuthenticatedPortalRecruitingIndexRoute
@@ -449,6 +470,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPortalDriverRoute: AuthenticatedPortalDriverRoute,
   AuthenticatedPortalNotificationsRoute: AuthenticatedPortalNotificationsRoute,
   AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
+  AuthenticatedPortalAdminApplicationsRoute:
+    AuthenticatedPortalAdminApplicationsRoute,
   AuthenticatedPortalRecruitingIdRoute: AuthenticatedPortalRecruitingIdRoute,
   AuthenticatedPortalAdminIndexRoute: AuthenticatedPortalAdminIndexRoute,
   AuthenticatedPortalRecruitingIndexRoute:
