@@ -254,17 +254,19 @@ function Home() {
             </p>
           </Reveal>
           <Reveal delay={0.1}>
-            <div className="panel flex aspect-16/10 flex-col items-center justify-center border-dashed p-8 text-center">
-              <Wrench className="size-8 text-accent" aria-hidden="true" />
-              <p className="mt-4 text-sm font-semibold uppercase tracking-wide">
-                Fleet photography placeholder
-              </p>
-              <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                Owner-supplied truck photography will be uploaded through the admin media library
-                and rendered here with optimized derivatives.
-              </p>
-            </div>
+            <figure className="overflow-hidden rounded-sm border border-border">
+              <img
+                src={fleetImg}
+                alt="Class 8 tractor with a dry van trailer staged at the 52 Logistics Harrisburg terminal"
+                width={1600}
+                height={1000}
+                loading="lazy"
+                decoding="async"
+                className="aspect-16/10 w-full object-cover"
+              />
+            </figure>
           </Reveal>
+
         </div>
       </section>
 
