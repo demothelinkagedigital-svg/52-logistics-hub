@@ -10,6 +10,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { getPublicJobs } from "@/lib/public-content.functions";
+import fleetImg from "@/assets/fleet-tractor.jpg";
 import { Reveal, Stagger, StaggerItem } from "@/components/site/Reveal";
 import { APPROVED_FLEET_IDS } from "@/lib/brand";
 
