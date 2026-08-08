@@ -19,14 +19,14 @@ export const Route = createFileRoute("/_authenticated/portal/admin/manage/$resou
 
 function ManageResourcePage() {
   const { resource } = Route.useParams();
-  const { isAdmin, isRecruiter, loading } = useSession();
+  const { isAdmin, isRecruiter, isContent, isLoading } = useSession();
   const view = RESOURCE_VIEWS[resource as ResourceKey];
 
   if (!view) throw notFound();
 
   return (
     <PortalShell>
-      {loading ? null : !isAdmin && !isRecruiter ? (
+      {isLoading ? null : !isAdmin && !isRecruiter && !isContent ? (
         <AccessDenied need="administrator or recruiter" />
       ) : (
         <div>
