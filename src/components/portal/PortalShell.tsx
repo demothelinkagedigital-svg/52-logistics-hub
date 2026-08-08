@@ -12,6 +12,7 @@ import {
   Menu,
   ScrollText,
   Shield,
+  Truck,
   Users,
   X,
 } from "lucide-react";
