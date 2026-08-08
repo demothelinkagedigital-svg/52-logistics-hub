@@ -72,9 +72,9 @@ function AdminPage() {
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Users" value={stats.data?.users ?? "—"} icon={Users} />
-        <StatCard label="Applications" value={stats.data?.applications ?? "—"} icon={ClipboardList} delay={0.05} />
-        <StatCard label="Drivers" value={stats.data?.drivers ?? "—"} icon={Truck} delay={0.1} />
-        <StatCard label="Announcements" value={stats.data?.announcements ?? "—"} icon={Bell} delay={0.15} />
+        <StatCard label="Pending applications" value={stats.data?.pendingApplications ?? "—"} icon={ClipboardList} delay={0.05} />
+        <StatCard label="Active drivers" value={stats.data?.activeDrivers ?? "—"} icon={Truck} delay={0.1} />
+        <StatCard label="Needs attention" value={stats.data?.needsAttention ?? "—"} icon={Bell} delay={0.15} />
       </div>
 
       <Panel title="Users & roles">
