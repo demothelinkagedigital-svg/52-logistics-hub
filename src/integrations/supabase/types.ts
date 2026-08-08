@@ -94,34 +94,81 @@ export type Database = {
           },
         ]
       }
+      announcement_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          announcement_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          announcement_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          announcement_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_acknowledgements_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "announcements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
+          attachment_url: string | null
           audience: string
           body: string
           created_at: string
+          expires_at: string | null
           id: string
           pinned: boolean
+          priority: string
+          publish_at: string | null
           published: boolean
+          requires_acknowledgement: boolean
+          status: string
           title: string
           updated_at: string
         }
         Insert: {
+          attachment_url?: string | null
           audience?: string
           body: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           pinned?: boolean
+          priority?: string
+          publish_at?: string | null
           published?: boolean
+          requires_acknowledgement?: boolean
+          status?: string
           title: string
           updated_at?: string
         }
         Update: {
+          attachment_url?: string | null
           audience?: string
           body?: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           pinned?: boolean
+          priority?: string
+          publish_at?: string | null
           published?: boolean
+          requires_acknowledgement?: boolean
+          status?: string
           title?: string
           updated_at?: string
         }
@@ -319,6 +366,7 @@ export type Database = {
           address_line1: string | null
           address_line2: string | null
           age_21_or_older: boolean | null
+          assigned_recruiter: string | null
           authorized_to_work: boolean | null
           can_perform_duties: boolean | null
           cdl_class: string | null
@@ -348,6 +396,7 @@ export type Database = {
           position_title: string | null
           positive_drug_test: boolean | null
           postal_code: string | null
+          priority: string
           reference_code: string
           signature_name: string | null
           state: string | null
@@ -366,6 +415,7 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           age_21_or_older?: boolean | null
+          assigned_recruiter?: string | null
           authorized_to_work?: boolean | null
           can_perform_duties?: boolean | null
           cdl_class?: string | null
@@ -395,6 +445,7 @@ export type Database = {
           position_title?: string | null
           positive_drug_test?: boolean | null
           postal_code?: string | null
+          priority?: string
           reference_code?: string
           signature_name?: string | null
           state?: string | null
@@ -413,6 +464,7 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           age_21_or_older?: boolean | null
+          assigned_recruiter?: string | null
           authorized_to_work?: boolean | null
           can_perform_duties?: boolean | null
           cdl_class?: string | null
@@ -442,6 +494,7 @@ export type Database = {
           position_title?: string | null
           positive_drug_test?: boolean | null
           postal_code?: string | null
+          priority?: string
           reference_code?: string
           signature_name?: string | null
           state?: string | null
@@ -553,6 +606,48 @@ export type Database = {
           },
         ]
       }
+      email_templates: {
+        Row: {
+          body: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          subject: string
+          template_key: string
+          updated_at: string
+          updated_by: string | null
+          variables: string[]
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          subject: string
+          template_key: string
+          updated_at?: string
+          updated_by?: string | null
+          variables?: string[]
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          subject?: string
+          template_key?: string
+          updated_at?: string
+          updated_by?: string | null
+          variables?: string[]
+        }
+        Relationships: []
+      }
       esign_records: {
         Row: {
           application_id: string
@@ -663,63 +758,158 @@ export type Database = {
         }
         Relationships: []
       }
+      handbook_signatures: {
+        Row: {
+          id: string
+          signature_name: string
+          signed_at: string
+          user_id: string
+          version_id: string
+        }
+        Insert: {
+          id?: string
+          signature_name: string
+          signed_at?: string
+          user_id: string
+          version_id: string
+        }
+        Update: {
+          id?: string
+          signature_name?: string
+          signed_at?: string
+          user_id?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handbook_signatures_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "handbook_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handbook_versions: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_url: string | null
+          effective_date: string | null
+          id: string
+          published: boolean
+          requires_signature: boolean
+          storage_path: string | null
+          title: string
+          updated_at: string
+          version_label: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_url?: string | null
+          effective_date?: string | null
+          id?: string
+          published?: boolean
+          requires_signature?: boolean
+          storage_path?: string | null
+          title: string
+          updated_at?: string
+          version_label: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_url?: string | null
+          effective_date?: string | null
+          id?: string
+          published?: boolean
+          requires_signature?: boolean
+          storage_path?: string | null
+          title?: string
+          updated_at?: string
+          version_label?: string
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
+          application_deadline: string | null
           archived_at: string | null
           benefits_notes: string | null
           created_at: string
           days: string
+          employment_type: string
           equipment_notes: string | null
+          experience_notes: string | null
           id: string
           location: string
           pay_notes: string | null
           position: string
           published: boolean
           requirements: string[]
+          responsibilities: string[]
           schedule: string
           slug: string
           sort_order: number
           status: string
           summary: string | null
           updated_at: string
+          work_category: string
         }
         Insert: {
+          application_deadline?: string | null
           archived_at?: string | null
           benefits_notes?: string | null
           created_at?: string
           days: string
+          employment_type?: string
           equipment_notes?: string | null
+          experience_notes?: string | null
           id?: string
           location?: string
           pay_notes?: string | null
           position: string
           published?: boolean
           requirements?: string[]
+          responsibilities?: string[]
           schedule: string
           slug: string
           sort_order?: number
           status?: string
           summary?: string | null
           updated_at?: string
+          work_category?: string
         }
         Update: {
+          application_deadline?: string | null
           archived_at?: string | null
           benefits_notes?: string | null
           created_at?: string
           days?: string
+          employment_type?: string
           equipment_notes?: string | null
+          experience_notes?: string | null
           id?: string
           location?: string
           pay_notes?: string | null
           position?: string
           published?: boolean
           requirements?: string[]
+          responsibilities?: string[]
           schedule?: string
           slug?: string
           sort_order?: number
           status?: string
           summary?: string | null
           updated_at?: string
+          work_category?: string
         }
         Relationships: []
       }
@@ -1135,6 +1325,63 @@ export type Database = {
           },
         ]
       }
+      media_assets: {
+        Row: {
+          alt_text: string | null
+          archived_at: string | null
+          category: string
+          content_type: string | null
+          created_at: string
+          height: number | null
+          id: string
+          public_url: string | null
+          size_bytes: number | null
+          storage_path: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+          usage_notes: string | null
+          width: number | null
+        }
+        Insert: {
+          alt_text?: string | null
+          archived_at?: string | null
+          category?: string
+          content_type?: string | null
+          created_at?: string
+          height?: number | null
+          id?: string
+          public_url?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+          usage_notes?: string | null
+          width?: number | null
+        }
+        Update: {
+          alt_text?: string | null
+          archived_at?: string | null
+          category?: string
+          content_type?: string | null
+          created_at?: string
+          height?: number | null
+          id?: string
+          public_url?: string | null
+          size_bytes?: number | null
+          storage_path?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          usage_notes?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1246,6 +1493,63 @@ export type Database = {
         }
         Relationships: []
       }
+      required_systems: {
+        Row: {
+          android_url: string | null
+          audience: string
+          created_at: string
+          description: string | null
+          id: string
+          ios_url: string | null
+          name: string
+          official_url: string | null
+          phone: string | null
+          published: boolean
+          purpose: string | null
+          setup_instructions: string | null
+          slug: string
+          sort_order: number
+          support_info: string | null
+          updated_at: string
+        }
+        Insert: {
+          android_url?: string | null
+          audience?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          ios_url?: string | null
+          name: string
+          official_url?: string | null
+          phone?: string | null
+          published?: boolean
+          purpose?: string | null
+          setup_instructions?: string | null
+          slug: string
+          sort_order?: number
+          support_info?: string | null
+          updated_at?: string
+        }
+        Update: {
+          android_url?: string | null
+          audience?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          ios_url?: string | null
+          name?: string
+          official_url?: string | null
+          phone?: string | null
+          published?: boolean
+          purpose?: string | null
+          setup_instructions?: string | null
+          slug?: string
+          sort_order?: number
+          support_info?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       safety_acknowledgements: {
         Row: {
           acknowledged_at: string
@@ -1274,6 +1578,95 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      safety_meeting_assignments: {
+        Row: {
+          acknowledged_at: string | null
+          attended_at: string | null
+          created_at: string
+          id: string
+          meeting_id: string
+          updated_at: string
+          user_id: string
+          viewed_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          attended_at?: string | null
+          created_at?: string
+          id?: string
+          meeting_id: string
+          updated_at?: string
+          user_id: string
+          viewed_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          attended_at?: string | null
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          updated_at?: string
+          user_id?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_meeting_assignments_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "safety_meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      safety_meetings: {
+        Row: {
+          acknowledgement_deadline: string | null
+          audience: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          instructions: string | null
+          materials_url: string | null
+          meeting_date: string | null
+          mode: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acknowledgement_deadline?: string | null
+          audience?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          instructions?: string | null
+          materials_url?: string | null
+          meeting_date?: string | null
+          mode?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acknowledgement_deadline?: string | null
+          audience?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          instructions?: string | null
+          materials_url?: string | null
+          meeting_date?: string | null
+          mode?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       safety_resources: {
         Row: {
