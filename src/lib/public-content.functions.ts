@@ -29,11 +29,20 @@ export type PublicJob = {
   location: string;
   summary: string | null;
   requirements: string[];
+  responsibilities: string[];
+  experience_notes: string | null;
+  employment_type: string;
+  work_category: string;
+  application_deadline: string | null;
   pay_notes: string | null;
   benefits_notes: string | null;
   equipment_notes: string | null;
   status: string;
+  updated_at: string;
 };
+
+const JOB_COLUMNS =
+  "id, position, slug, days, schedule, location, summary, requirements, responsibilities, experience_notes, employment_type, work_category, application_deadline, pay_notes, benefits_notes, equipment_notes, status, updated_at";
 
 export type SiteSettings = Record<string, string | null>;
 
