@@ -155,7 +155,7 @@ function RecruitingPage() {
                       <td className="py-3 pr-3 font-mono text-xs">{a.reference_code}</td>
                       <td className="py-3 pr-3">{a.position_title ?? "—"}</td>
                       <td className="py-3 pr-3">
-                        <StatusBadge status={a.status} label={APPLICATION_STATUS_LABELS[a.status]} />
+                        <StatusBadge status={a.status} label={APPLICATION_STATUS_LABELS[a.status] ?? a.status} />
                       </td>
                       <td className="py-3 pr-3 text-xs text-muted-foreground">
                         {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : "—"}

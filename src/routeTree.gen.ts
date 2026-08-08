@@ -27,6 +27,7 @@ import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedPortalApplicationRouteImport } from './routes/_authenticated/portal.application'
 import { Route as AuthenticatedPortalDriverRouteImport } from './routes/_authenticated/portal.driver'
 import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal.notifications'
+import { Route as AuthenticatedPortalRecruitingIndexRouteImport } from './routes/_authenticated/portal.recruiting.index'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -120,6 +121,12 @@ const AuthenticatedPortalNotificationsRoute =
     path: '/portal/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPortalRecruitingIndexRoute =
+  AuthenticatedPortalRecruitingIndexRouteImport.update({
+    id: '/portal/recruiting/',
+    path: '/portal/recruiting/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
+  '/portal/recruiting/': typeof AuthenticatedPortalRecruitingIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof SiteIndexRoute
@@ -156,6 +164,7 @@ export interface FileRoutesByTo {
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
+  '/portal/recruiting': typeof AuthenticatedPortalRecruitingIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -177,6 +186,7 @@ export interface FileRoutesById {
   '/_authenticated/portal/driver': typeof AuthenticatedPortalDriverRoute
   '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
+  '/_authenticated/portal/recruiting/': typeof AuthenticatedPortalRecruitingIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/portal/driver'
     | '/portal/notifications'
     | '/portal/'
+    | '/portal/recruiting/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/portal/driver'
     | '/portal/notifications'
     | '/portal'
+    | '/portal/recruiting'
   id:
     | '__root__'
     | '/_authenticated'
@@ -235,6 +247,7 @@ export interface FileRouteTypes {
     | '/_authenticated/portal/driver'
     | '/_authenticated/portal/notifications'
     | '/_authenticated/portal/'
+    | '/_authenticated/portal/recruiting/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -371,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalNotificationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/portal/recruiting/': {
+      id: '/_authenticated/portal/recruiting/'
+      path: '/portal/recruiting'
+      fullPath: '/portal/recruiting/'
+      preLoaderRoute: typeof AuthenticatedPortalRecruitingIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -379,6 +399,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPortalDriverRoute: typeof AuthenticatedPortalDriverRoute
   AuthenticatedPortalNotificationsRoute: typeof AuthenticatedPortalNotificationsRoute
   AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
+  AuthenticatedPortalRecruitingIndexRoute: typeof AuthenticatedPortalRecruitingIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -386,6 +407,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPortalDriverRoute: AuthenticatedPortalDriverRoute,
   AuthenticatedPortalNotificationsRoute: AuthenticatedPortalNotificationsRoute,
   AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
+  AuthenticatedPortalRecruitingIndexRoute:
+    AuthenticatedPortalRecruitingIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -429,3 +452,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
