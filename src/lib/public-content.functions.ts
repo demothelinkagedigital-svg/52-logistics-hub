@@ -29,11 +29,20 @@ export type PublicJob = {
   location: string;
   summary: string | null;
   requirements: string[];
+  responsibilities: string[];
+  experience_notes: string | null;
+  employment_type: string;
+  work_category: string;
+  application_deadline: string | null;
   pay_notes: string | null;
   benefits_notes: string | null;
   equipment_notes: string | null;
   status: string;
+  updated_at: string;
 };
+
+const JOB_COLUMNS =
+  "id, position, slug, days, schedule, location, summary, requirements, responsibilities, experience_notes, employment_type, work_category, application_deadline, pay_notes, benefits_notes, equipment_notes, status, updated_at";
 
 export type SiteSettings = Record<string, string | null>;
 
@@ -64,13 +73,27 @@ export const getPublicJobs = createServerFn({ method: "GET" }).handler(
     const sb = publicClient();
     const { data } = await sb
       .from("jobs")
-      .select(
-        "id, position, slug, days, schedule, location, summary, requirements, pay_notes, benefits_notes, equipment_notes, status",
-      )
+      .select(JOB_COLUMNS)
+      .eq("published", true)
+      .is("archived_at", null)
       .order("sort_order");
-    return (data ?? []) as PublicJob[];
+    return (data ?? []) as unknown as PublicJob[];
   },
 );
+
+export const getPublicJob = createServerFn({ method: "GET" })
+  .inputValidator((slug: string) => slug)
+  .handler(async ({ data: slug }): Promise<PublicJob | null> => {
+    const sb = publicClient();
+    const { data } = await sb
+      .from("jobs")
+      .select(JOB_COLUMNS)
+      .eq("slug", slug)
+      .eq("published", true)
+      .is("archived_at", null)
+      .maybeSingle();
+    return (data ?? null) as unknown as PublicJob | null;
+  });
 
 export const getPublicFaqs = createServerFn({ method: "GET" }).handler(
   async (): Promise<PublicFaq[]> => {
