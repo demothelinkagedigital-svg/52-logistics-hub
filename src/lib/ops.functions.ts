@@ -246,7 +246,7 @@ export const saveResource = createServerFn({ method: "POST" })
       const { error } = await db.from(def.table).update(payload).eq(idColumn, data.id);
       if (error) throw new Error(error.message);
     } else {
-      const { data: inserted, error } = await supabase
+      const { data: inserted, error } = await db
         .from(def.table)
         .insert(payload)
         .select("*")
@@ -278,7 +278,7 @@ export const archiveResource = createServerFn({ method: "POST" })
     await assertAccess(db, userId, def.write);
 
     if (def.archiveColumn) {
-      const { error } = await supabase
+      const { error } = await db
         .from(def.table)
         .update({
           [def.archiveColumn]: data.restore ? null : new Date().toISOString(),
@@ -364,7 +364,7 @@ export const reorderResource = createServerFn({ method: "POST" })
     await assertAccess(db, userId, def.write);
     if (!def.columns.includes("sort_order")) throw new Error("This resource is not orderable.");
     for (const item of data.order) {
-      const { error } = await supabase
+      const { error } = await db
         .from(def.table)
         .update({ sort_order: item.sort_order })
         .eq("id", item.id);
