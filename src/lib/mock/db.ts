@@ -11,10 +11,15 @@ export type Tables = Record<string, Row[]>;
 
 const STORAGE_KEY = "52logistics-demo-db-v1";
 
-export function uid(prefix = "row"): string {
-  const rand = Math.random().toString(16).slice(2).padEnd(12, "0").slice(0, 12);
-  const time = Date.now().toString(16).padStart(12, "0").slice(-12);
-  return `${time.slice(0, 8)}-${time.slice(8, 12)}-4${rand.slice(0, 3)}-a${rand.slice(3, 6)}-${prefix.length ? rand.slice(0, 3) : "000"}${rand.slice(3, 12).padEnd(9, "0")}`;
+let seeding = true;
+let counter = 0;
+
+/** Deterministic while seeding so server and browser render identical ids. */
+export function uid(_prefix = "row"): string {
+  counter += 1;
+  const n = counter.toString(16).padStart(12, "0");
+  const salt = seeding ? "000000000000" : Date.now().toString(16).padStart(12, "0").slice(-12);
+  return `${n.slice(0, 8)}-${n.slice(8, 12)}-4d00-a000-${salt}`;
 }
 
 const nowIso = () => new Date().toISOString();
@@ -580,6 +585,7 @@ export function getDb(): Tables {
       if (raw) {
         const parsed = JSON.parse(raw) as Tables;
         const fresh = seed();
+        seeding = false;
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
         cache = parsed;
@@ -590,6 +596,7 @@ export function getDb(): Tables {
     }
   }
   cache = seed();
+  seeding = false;
   persist();
   return cache;
 }
@@ -604,7 +611,10 @@ export function persist() {
 }
 
 export function resetDb() {
+  counter = 0;
+  seeding = true;
   cache = seed();
+  seeding = false;
   if (isBrowser()) window.localStorage.removeItem(STORAGE_KEY);
   persist();
 }
