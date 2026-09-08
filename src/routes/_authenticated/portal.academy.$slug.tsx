@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/mock/server-fn";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -380,7 +380,7 @@ function CoursePlayer() {
                 <div className="mt-6 rounded-sm border border-border bg-surface-2 p-4">
                   <p className="eyebrow text-accent">What you will be able to do</p>
                   <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
-                    {data.course.objectives.map((o) => (
+                    {(data.course.objectives as string[]).map((o) => (
                       <li key={o} className="flex gap-2">
                         <Check className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
                         {o}

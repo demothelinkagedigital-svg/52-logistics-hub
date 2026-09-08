@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/mock/server-fn";
 import { Award, BookOpen, Clock, GraduationCap, PlayCircle } from "lucide-react";
 import { getAcademyOverview } from "@/lib/lms.functions";
 import { useSession } from "@/lib/session";

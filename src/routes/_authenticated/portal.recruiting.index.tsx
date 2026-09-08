@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/mock/server-fn";
 import { Users, Inbox, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { listApplications, getRecruitingStats } from "@/lib/recruiting.functions";
 import { APPLICATION_STATUS_LABELS } from "@/lib/application-schema";

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/mock/server-fn";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { AlertTriangle, Check, Loader2, Save, Trash2, Upload } from "lucide-react";
@@ -23,7 +23,7 @@ import {
   type ApplicationDraft,
   type EmployerInput,
 } from "@/lib/application-schema";
-import { supabase } from "@/integrations/supabase/client";
+import { demoClient as supabase } from "@/lib/mock/client";
 import { PortalHeading } from "@/components/portal/PortalShell";
 import {
   EmptyState,
@@ -313,8 +313,8 @@ function ApplicationPage() {
       const path = `${uid}/${id}/${docType}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("applicant-documents")
-        .upload(path, file, { contentType: file.type, upsert: false });
-      if (upErr) throw new Error(upErr.message);
+        .upload(path, file);
+      if (upErr) throw new Error(String((upErr as { message?: string }).message ?? "Upload failed"));
       await recordDoc({
         data: {
           application_id: id,

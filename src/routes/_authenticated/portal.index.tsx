@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/mock/server-fn";
 import { ClipboardList, ArrowRight } from "lucide-react";
 import { getMyPortal } from "@/lib/portal.functions";
 import { PortalHeading, Card } from "@/components/portal/PortalShell";

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/mock/server-fn";
 import { listApplications } from "@/lib/recruiting.functions";
 import { APPLICATION_STATUS_LABELS } from "@/lib/application-schema";
 import { useSession } from "@/lib/session";

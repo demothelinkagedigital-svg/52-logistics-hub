@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { demoClient as supabase } from "@/lib/mock/client";
 import { PortalShell } from "@/components/portal/PortalShell";
 
 export const Route = createFileRoute("/_authenticated")({
