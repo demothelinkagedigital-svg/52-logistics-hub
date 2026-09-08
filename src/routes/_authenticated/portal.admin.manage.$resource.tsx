@@ -25,7 +25,7 @@ function ManageResourcePage() {
   if (!view) throw notFound();
 
   return (
-    <PortalShell>
+    <>
       {isLoading ? null : !isAdmin && !isRecruiter && !isContent ? (
         <AccessDenied need="administrator or recruiter" />
       ) : (
@@ -50,6 +50,7 @@ function ManageResourcePage() {
           <ResourceManager resource={resource as ResourceKey} view={view} />
         </div>
       )}
-    </PortalShell>
+    </>
+
   );
 }
