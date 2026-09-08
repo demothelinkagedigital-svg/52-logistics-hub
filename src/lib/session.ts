@@ -1,21 +1,26 @@
 import { useQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
-import type { User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import { demoRoles, getDemoUser, setDemoUserId } from "@/lib/mock/client";
 
-export type AppRole = Database["public"]["Enums"]["app_role"];
+export type AppRole =
+  | "administrator"
+  | "recruiter"
+  | "content_manager"
+  | "driver"
+  | "applicant"
+  | "developer";
+
+export type SessionUser = {
+  id: string;
+  email: string;
+  user_metadata: { full_name?: string };
+};
 
 export const sessionQuery = queryOptions({
   queryKey: ["session"],
-  queryFn: async (): Promise<{ user: User | null; roles: AppRole[] }> => {
-    const { data } = await supabase.auth.getUser();
-    const user = data.user ?? null;
+  queryFn: async (): Promise<{ user: SessionUser | null; roles: AppRole[] }> => {
+    const user = getDemoUser();
     if (!user) return { user: null, roles: [] };
-    const { data: roleRows } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id);
-    return { user, roles: (roleRows ?? []).map((r) => r.role as AppRole) };
+    return { user, roles: demoRoles(user.id) as AppRole[] };
   },
   staleTime: 60 * 1000,
 });
@@ -44,7 +49,7 @@ export function useSignOut() {
   return async () => {
     await queryClient.cancelQueries();
     queryClient.clear();
-    await supabase.auth.signOut();
+    setDemoUserId(null);
     window.location.assign("/auth");
   };
 }

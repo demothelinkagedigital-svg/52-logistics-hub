@@ -1,5 +1,5 @@
-import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { createServerFn } from "@/lib/mock/server-fn";
+import { requireSupabaseAuth } from "@/lib/mock/server-fn";
 import { z } from "zod";
 
 export const getDriverHub = createServerFn({ method: "GET" })

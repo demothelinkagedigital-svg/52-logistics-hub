@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useServerFn } from "@/lib/mock/server-fn";
 import { motion } from "motion/react";
 import { Check, CheckCheck } from "lucide-react";
 import { listNotifications, markNotificationRead } from "@/lib/notifications.functions";
