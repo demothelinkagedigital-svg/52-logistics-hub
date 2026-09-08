@@ -1,5 +1,5 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { PortalShell } from "@/components/portal/PortalShell";
+
 import { ResourceManager } from "@/components/portal/ResourceManager";
 import { AccessDenied } from "@/components/portal/ui";
 import { RESOURCE_VIEWS, MANAGE_GROUPS } from "@/lib/resource-fields";
@@ -25,7 +25,7 @@ function ManageResourcePage() {
   if (!view) throw notFound();
 
   return (
-    <PortalShell>
+    <>
       {isLoading ? null : !isAdmin && !isRecruiter && !isContent ? (
         <AccessDenied need="administrator or recruiter" />
       ) : (
@@ -50,6 +50,7 @@ function ManageResourcePage() {
           <ResourceManager resource={resource as ResourceKey} view={view} />
         </div>
       )}
-    </PortalShell>
+    </>
+
   );
 }

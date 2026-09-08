@@ -1,6 +1,7 @@
-import logoAsset from "@/assets/logo.png.asset.json";
+import logoUrl from "@/assets/logo.png";
 
-export const LOGO_URL = logoAsset.url;
+export const LOGO_URL = logoUrl;
+
 
 export const COMPANY = "52 Logistics, Inc.";
 
