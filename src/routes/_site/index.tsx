@@ -56,15 +56,31 @@ function Home() {
   return (
     <>
       {/* HERO */}
-      <section className="surface-ink relative overflow-hidden">
+      <section className="surface-ink relative isolate overflow-hidden">
+        <img
+          src={heroImg}
+          alt="Class 8 tractor and trailer at a freight terminal dock at dusk"
+          width={1920}
+          height={1280}
+          fetchPriority="high"
+          decoding="async"
+          className="absolute inset-0 -z-20 size-full object-cover object-center opacity-45"
+        />
         <div
-          className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/3 hatch opacity-40 lg:block"
+          className="absolute inset-0 -z-10 bg-[linear-gradient(100deg,oklch(0.155_0.06_283/0.96)_0%,oklch(0.185_0.075_285/0.86)_46%,oklch(0.185_0.075_300/0.55)_100%)]"
           aria-hidden="true"
         />
-        <div className="container-page relative grid gap-14 py-20 lg:grid-cols-12 lg:py-28">
-          <Reveal className="lg:col-span-7">
-            <p className="eyebrow text-accent">Harrisburg, Pennsylvania · Terminal 170</p>
-            <h1 className="display-xl mt-5 text-ink-foreground">
+        <div className="grid-lines pointer-events-none absolute inset-0 -z-10 opacity-60" aria-hidden="true" />
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 hidden w-1/4 hatch opacity-25 lg:block"
+          aria-hidden="true"
+        />
+        <div className="container-page relative grid gap-14 py-24 lg:grid-cols-12 lg:py-36">
+          <Reveal className="lg:col-span-8">
+            <p className="eyebrow inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-accent">
+              Harrisburg, Pennsylvania · Terminal 170
+            </p>
+            <h1 className="display-xl mt-6 text-ink-foreground drop-shadow-[0_2px_20px_oklch(0_0_0/0.35)]">
               Move Your Career
               <br />
               Forward with
@@ -77,7 +93,7 @@ function Home() {
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
                 to="/careers"
-                className="group inline-flex items-center justify-center gap-2 rounded-sm bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground transition-transform hover:-translate-y-0.5"
+                className="group inline-flex items-center justify-center gap-2 rounded-sm bg-accent px-6 py-3.5 text-base font-semibold text-accent-foreground shadow-[0_18px_40px_-18px_oklch(0.665_0.196_45/0.9)] transition-transform hover:-translate-y-0.5"
               >
                 View Open Positions
                 <ArrowRight
@@ -87,28 +103,14 @@ function Home() {
               </Link>
               <Link
                 to="/apply"
-                className="inline-flex items-center justify-center rounded-sm border border-ink-border px-6 py-3.5 text-base font-semibold text-ink-foreground transition-colors hover:border-accent"
+                className="inline-flex items-center justify-center rounded-sm border border-ink-border bg-white/5 px-6 py-3.5 text-base font-semibold text-ink-foreground backdrop-blur transition-colors hover:border-accent"
               >
                 Apply Now
               </Link>
             </div>
           </Reveal>
-
-          <Reveal delay={0.15} className="lg:col-span-5">
-            <div className="border border-ink-border bg-ink/40 p-1">
-              <div className="flex aspect-4/3 flex-col items-center justify-center border border-dashed border-ink-border/80 p-8 text-center">
-                <Wrench className="size-8 text-accent" aria-hidden="true" />
-                <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-ink-foreground">
-                  Company photography
-                </p>
-                <p className="mt-2 max-w-xs text-sm text-ink-muted">
-                  Reserved for owner-supplied fleet photography. Replaceable from the admin media
-                  library — no stock imagery is used here.
-                </p>
-              </div>
-            </div>
-          </Reveal>
         </div>
+
 
         <div className="border-t border-ink-border">
           <ul className="container-page grid grid-cols-2 divide-ink-border lg:grid-cols-4 lg:divide-x">
