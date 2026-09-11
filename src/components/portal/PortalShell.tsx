@@ -110,19 +110,27 @@ export function PortalShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <div className="container-page flex flex-1 gap-8 py-6 lg:py-10">
-        <aside className={cn("w-full shrink-0 lg:block lg:w-60", open ? "block" : "hidden")}>
-          <nav aria-label="Portal" className="flex flex-col gap-1 lg:sticky lg:top-24">
+      <div className="container-page flex flex-1 flex-col gap-8 py-6 lg:flex-row lg:py-10">
+        <aside className={cn("w-full shrink-0 lg:block lg:w-64", open ? "block" : "hidden")}>
+          <nav
+            aria-label="Portal"
+            className="flex flex-col gap-1 rounded-md border border-border bg-surface p-2 shadow-[var(--shadow-panel)] lg:sticky lg:top-24"
+          >
+            <p className="eyebrow px-3 pt-2 pb-1 text-muted-foreground">Navigation</p>
             {nav.map((item) => (
               <Link
                 key={item.to}
                 to={item.to as string}
                 activeOptions={{ exact: item.exact === true }}
                 onClick={() => setOpen(false)}
-                className="inline-flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium text-foreground/75 transition-colors hover:bg-secondary data-[status=active]:bg-secondary data-[status=active]:text-primary"
+                className="group relative inline-flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium text-foreground/75 transition-colors hover:bg-secondary data-[status=active]:bg-secondary data-[status=active]:text-primary"
               >
-                <item.icon className="size-4" aria-hidden="true" />
-                {item.label}
+                <span
+                  className="absolute left-0 h-5 w-0.5 rounded-full bg-accent opacity-0 transition-opacity group-data-[status=active]:opacity-100"
+                  aria-hidden="true"
+                />
+                <item.icon className="size-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">{item.label}</span>
               </Link>
             ))}
           </nav>
@@ -131,6 +139,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+
     </div>
   );
 }

@@ -53,8 +53,11 @@ function Auth() {
   }
 
   return (
-    <main className="surface-ink min-h-screen py-16">
+    <main className="surface-ink relative isolate min-h-screen overflow-hidden py-16">
+      <div className="grid-lines pointer-events-none absolute inset-0 -z-10 opacity-70" aria-hidden="true" />
+      <div className="hatch pointer-events-none absolute inset-y-0 right-0 -z-10 hidden w-1/4 opacity-20 lg:block" aria-hidden="true" />
       <div className="container-page max-w-3xl">
+
         <Link to="/" className="inline-flex items-center gap-3">
           <img src={LOGO_URL} alt="52 Logistics, Inc. logo" className="h-11 w-auto" />
         </Link>
