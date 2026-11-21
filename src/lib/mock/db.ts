@@ -564,72 +564,6 @@ function seed(): Tables {
 
 let cache: Tables | null = null;
 
-function refreshStoredDemoData(parsed: Tables, fresh: Tables) {
-  const defaults = new Map(fresh.site_settings!.map((row) => [row.key, row]));
-  const aliases: Record<string, string> = {
-    email_recruiting: "recruiting_email",
-    email_office: "company_email",
-    office_email: "company_email",
-  };
-  const removed = new Set(["company_phone", "recruiting_phone", "dot_number", "mc_number"]);
-  const oldValues: Record<string, string> = {
-    recruiting_email: "recruiting@52logistics.demo",
-    company_email: "info@52logistics.demo",
-    address_line1: "4400 Industrial Park Road",
-    address_postal: "17111",
-  };
-  const settings = parsed.site_settings ?? [];
-  const present = new Set(settings.filter((row) => !aliases[row.key]).map((row) => row.key));
-  const updated = settings.flatMap((row) => {
-    if (removed.has(row.key) || aliases[row.key]) return [];
-    const replacement = defaults.get(row.key);
-    if (replacement && oldValues[row.key] === row.value) return [replacement];
-    if (row.key.startsWith("address_")) return [{ ...row, needs_verification: true }];
-    return [row];
-  });
-  for (const key of Object.values(aliases)) {
-    if (settings.some((row) => aliases[row.key] === key) && !present.has(key)) {
-      const replacement = defaults.get(key);
-      if (replacement) updated.push(replacement);
-    }
-  }
-  if (!present.has("brand_qualifier")) {
-    const qualifier = defaults.get("brand_qualifier");
-    if (qualifier) updated.push(qualifier);
-  }
-  parsed.site_settings = updated;
-  parsed.social_links = (parsed.social_links ?? []).filter((row) => {
-    if (typeof row.url !== "string") return true;
-    try {
-      const url = new URL(row.url);
-      const host = url.hostname.replace(/^www\./, "");
-      return !(url.pathname === "/" && ["facebook.com", "linkedin.com", "indeed.com"].includes(host));
-    } catch {
-      return true;
-    }
-  });
-
-  const previousJobSlugs = new Set([
-    "regional-class-a-driver",
-    "dedicated-account-driver",
-    "yard-jockey-spotter",
-    "local-pd-driver",
-    "weekend-shuttle-driver",
-    "diesel-technician",
-  ]);
-  if (parsed.jobs?.some((job) => previousJobSlugs.has(job.slug))) parsed.jobs = fresh.jobs;
-
-  const previousFaqs = new Set([
-    "How long does the application take?",
-    "What experience do I need?",
-    "Do you run background checks?",
-    "When will I hear back?",
-    "Is the freight home daily?",
-    "What equipment do you run?",
-  ]);
-  if (parsed.faqs?.some((faq) => previousFaqs.has(faq.question))) parsed.faqs = fresh.faqs;
-}
-
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -645,7 +579,6 @@ export function getDb(): Tables {
         seeding = false;
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
-        refreshStoredDemoData(parsed, fresh);
         cache = parsed;
         persist();
         return cache;
