@@ -3,9 +3,11 @@ import { requireSupabaseAuth } from "@/lib/mock/server-fn";
 import {
   applicationDraftSchema,
   employerSchema,
-  type ApplicationDraft,
 } from "@/lib/application-schema";
 import { z } from "zod";
+
+const portalDraftSchema = applicationDraftSchema.omit({ signature_signed_at: true });
+export type PortalApplicationDraft = z.infer<typeof portalDraftSchema>;
 
 export const getMyPortal = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -141,23 +143,40 @@ export const startApplication = createServerFn({ method: "POST" })
       .eq("status", "draft")
       .maybeSingle();
     if (existing) return { id: existing.id };
-    const { data: created, error } = await supabase
-      .from("applications")
-      .insert({
-        user_id: userId,
-        position_title: data.position_title ?? null,
-        job_id: data.job_id ?? null,
-      })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    return { id: created.id };
+    // Check before inserting for the demo client; the unique index also protects
+    // against concurrent inserts when using a database-backed client.
+    const start = Math.floor(Math.random() * 10000);
+    for (let i = 0; i < 10000; i++) {
+      const reference_code = `52L-${String((start + i) % 10000).padStart(4, "0")}`;
+      const { data: used, error: lookupError } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("reference_code", reference_code)
+        .maybeSingle();
+      if (lookupError) throw new Error(lookupError.message);
+      if (used) continue;
+      const { data: created, error } = await supabase
+        .from("applications")
+        .insert({
+          user_id: userId,
+          position_title: data.position_title ?? null,
+          job_id: data.job_id ?? null,
+          reference_code,
+          status: "draft",
+          current_step: 1,
+        })
+        .select("id")
+        .single();
+      if (!error) return { id: created.id };
+      if (!/duplicate key|unique constraint/i.test(error.message)) throw new Error(error.message);
+    }
+    throw new Error("No application reference numbers are available.");
   });
 
 export const saveApplicationDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { id: string; values: ApplicationDraft }) =>
-    z.object({ id: z.string().uuid(), values: applicationDraftSchema }).parse(input),
+  .inputValidator((input: { id: string; values: PortalApplicationDraft }) =>
+    z.object({ id: z.string().uuid(), values: portalDraftSchema }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -201,6 +220,9 @@ export const saveEmployers = createServerFn({ method: "POST" })
         end_date: e.end_date || null,
         reason_for_leaving: e.reason_for_leaving ?? null,
         was_dot_regulated: e.was_dot_regulated,
+        current_employer: e.current_employer ?? null,
+        commercial_driving_relevant: e.commercial_driving_relevant ?? null,
+        permission_to_contact: e.permission_to_contact ?? null,
         equipment_operated: e.equipment_operated ?? null,
         sort_order: i,
       }));
@@ -216,11 +238,14 @@ export const recordDocument = createServerFn({ method: "POST" })
     z
       .object({
         application_id: z.string().uuid(),
-        doc_type: z.string().max(40),
+        doc_type: z.enum(["medical_card", "resume"]),
         storage_path: z.string().max(400),
-        file_name: z.string().max(255),
-        mime_type: z.string().max(120).optional(),
-        size_bytes: z.number().int().nonnegative().optional(),
+        file_name: z.string().max(255).regex(/\.(pdf|jpe?g|png)$/i, "Upload a PDF, JPG, or PNG file."),
+        mime_type: z.enum(["application/pdf", "image/jpeg", "image/png"], {
+          errorMap: () => ({ message: "Upload a PDF, JPG, or PNG file." }),
+        }),
+        size_bytes: z.number({ required_error: "File size is required." })
+          .int().nonnegative().max(10 * 1024 * 1024, "Files must be 10 MiB or smaller."),
       })
       .parse(input),
   )
@@ -232,8 +257,8 @@ export const recordDocument = createServerFn({ method: "POST" })
       doc_type: data.doc_type,
       storage_path: data.storage_path,
       file_name: data.file_name,
-      mime_type: data.mime_type ?? null,
-      size_bytes: data.size_bytes ?? null,
+      mime_type: data.mime_type,
+      size_bytes: data.size_bytes,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -262,13 +287,15 @@ export const submitApplication = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const submittedAt = new Date().toISOString();
     const { data: updated, error } = await supabase
       .from("applications")
       .update({
         status: "submitted",
         certified: true,
         signature_name: data.signature_name,
-        submitted_at: new Date().toISOString(),
+        submitted_at: submittedAt,
+        signature_signed_at: submittedAt,
         correction_notes: null,
         current_step: 6,
       })

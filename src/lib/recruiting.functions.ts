@@ -12,7 +12,7 @@ export const listApplications = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("applications")
       .select(
-        "id, reference_code, first_name, last_name, email, phone, position_title, status, cdl_class, years_experience, city, state, submitted_at, created_at, updated_at",
+        "id, reference_code, first_name, last_name, email, phone, position_title, status, submitted_at, created_at, updated_at",
       )
       .neq("status", "draft")
       .order("submitted_at", { ascending: false, nullsFirst: false });
@@ -27,31 +27,40 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data: isStaff } = await supabase.rpc("is_recruiting_staff", { _user_id: userId });
     if (!isStaff) throw new Error("Forbidden");
-    const [appRes, empRes, docRes, noteRes, eventRes, screenRes, esignRes] = await Promise.all([
-      supabase.from("applications").select("*").eq("id", data.id).maybeSingle(),
+    const [appRes, empRes, docRes, noteRes, eventRes] = await Promise.all([
+      supabase
+        .from("applications")
+        .select(
+          "id, reference_code, first_name, last_name, preferred_name, email, phone, preferred_contact_method, city, state, postal_code, position_title, status, is_18_or_older, cdl_class, cdl_state, cdl_status, endorsements, commercial_experience_years, tractor_trailer_experience, linehaul_pd_experience, schedule_availability, start_availability, authorized_to_work, can_perform_duties_with_or_without_accommodation, medical_card_status, medical_card_expiration_month, medical_card_expiration_year, agrees_to_comply, consent_electronic_records, signature_signed_at, signature_name, certified, how_did_you_hear, additional_notes",
+        )
+        .eq("id", data.id)
+        .maybeSingle(),
       supabase
         .from("application_employers")
-        .select("*")
+        .select(
+          "id, employer_name, position_held, city, state, start_date, end_date, reason_for_leaving, was_dot_regulated, current_employer, commercial_driving_relevant, permission_to_contact",
+        )
         .eq("application_id", data.id)
         .order("sort_order"),
       supabase
         .from("application_documents")
-        .select("*")
+        .select("id, doc_type, verification_status, created_at")
         .eq("application_id", data.id)
         .order("created_at"),
       supabase
         .from("application_notes")
-        .select("*")
+        .select("id, body, created_at")
         .eq("application_id", data.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("application_events")
-        .select("*")
+        .select("id, event_type, created_at")
         .eq("application_id", data.id)
         .order("created_at", { ascending: false }),
-      supabase.from("screening_records").select("*").eq("application_id", data.id).maybeSingle(),
-      supabase.from("esign_records").select("*").eq("application_id", data.id).order("created_at"),
     ]);
+    for (const result of [appRes, empRes, docRes, noteRes, eventRes]) {
+      if (result.error) throw new Error(result.error.message);
+    }
     if (!appRes.data) throw new Error("Application not found");
     return {
       application: appRes.data,
@@ -59,8 +68,6 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
       documents: docRes.data ?? [],
       notes: noteRes.data ?? [],
       events: eventRes.data ?? [],
-      screening: screenRes.data ?? null,
-      esign: esignRes.data ?? [],
     };
   });
 
@@ -213,14 +220,12 @@ export const getRecruitingStats = createServerFn({ method: "GET" })
     return {
       total: apps.filter((a) => a.status !== "draft").length,
       drafts: apps.filter((a) => a.status === "draft").length,
-      newThisWeek: apps.filter(
-        (a) => a.submitted_at && new Date(a.submitted_at).getTime() > since,
-      ).length,
+      newThisWeek: apps.filter((a) => a.submitted_at && new Date(a.submitted_at).getTime() > since)
+        .length,
       awaitingReview: apps.filter((a) => a.status === "submitted").length,
       needingCorrections: apps.filter((a) => a.status === "corrections_requested").length,
-      approved: apps.filter((a) =>
-        ["conditional_offer", "onboarding", "hired"].includes(a.status),
-      ).length,
+      approved: apps.filter((a) => ["conditional_offer", "onboarding", "hired"].includes(a.status))
+        .length,
       rejected: apps.filter((a) => ["rejected", "withdrawn"].includes(a.status)).length,
       byStatus,
       documents: {
@@ -236,9 +241,7 @@ export const getRecruitingStats = createServerFn({ method: "GET" })
 export const requestCorrections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ id: z.string().uuid(), notes: z.string().trim().min(3).max(2000) })
-      .parse(input),
+    z.object({ id: z.string().uuid(), notes: z.string().trim().min(3).max(2000) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;

@@ -13,6 +13,7 @@ import {
   recordDocument,
   deleteDocument,
   submitApplication,
+  type PortalApplicationDraft,
 } from "@/lib/portal.functions";
 import { getDocumentUrl } from "@/lib/recruiting.functions";
 import {
@@ -20,7 +21,6 @@ import {
   APPLICATION_STATUS_LABELS,
   DOCUMENT_TYPES,
   ENDORSEMENTS,
-  type ApplicationDraft,
   type EmployerInput,
 } from "@/lib/application-schema";
 import { demoClient as supabase } from "@/lib/mock/client";
@@ -50,7 +50,10 @@ export const Route = createFileRoute("/_authenticated/portal/application")({
 });
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
-const ACCEPTED = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"];
+const ACCEPTED = ["application/pdf", "image/jpeg", "image/png"] as const;
+const isAcceptedMimeType = (type: string): type is (typeof ACCEPTED)[number] =>
+  ACCEPTED.some((accepted) => accepted === type);
+const isRequiredDocument = (type: { required: boolean }) => type.required;
 
 type Doc = {
   id: string;
@@ -179,7 +182,7 @@ function ApplicationPage() {
   const editable = !app || app.status === "draft" || app.status === "corrections_requested";
 
   const [step, setStep] = useState(1);
-  const [values, setValues] = useState<ApplicationDraft>({});
+  const [values, setValues] = useState<PortalApplicationDraft>({});
   const [employers, setEmployers] = useState<EmployerInput[]>([]);
   const [signature, setSignature] = useState("");
   const [saving, setSaving] = useState(false);
@@ -193,38 +196,19 @@ function ApplicationPage() {
     hydrated.current = true;
     if (data.application) {
       const a = data.application as Record<string, unknown>;
-      const picked: Record<string, unknown> = {};
-      for (const key of Object.keys(a)) picked[key] = a[key];
       setValues({
         first_name: (a["first_name"] as string) ?? "",
         middle_name: (a["middle_name"] as string) ?? "",
         last_name: (a["last_name"] as string) ?? "",
         email: (a["email"] as string) ?? "",
         phone: (a["phone"] as string) ?? "",
-        address_line1: (a["address_line1"] as string) ?? "",
-        address_line2: (a["address_line2"] as string) ?? "",
         city: (a["city"] as string) ?? "",
         state: (a["state"] as string) ?? "",
         postal_code: (a["postal_code"] as string) ?? "",
-        date_of_birth: (a["date_of_birth"] as string) ?? "",
-        cdl_number: (a["cdl_number"] as string) ?? "",
         cdl_state: (a["cdl_state"] as string) ?? "",
         cdl_class: (a["cdl_class"] as string) ?? "",
-        cdl_issue_date: (a["cdl_issue_date"] as string) ?? "",
-        cdl_expiration_date: (a["cdl_expiration_date"] as string) ?? "",
         endorsements: (a["endorsements"] as string[]) ?? [],
-        years_experience: (a["years_experience"] as number) ?? null,
-        medical_card_expiration: (a["medical_card_expiration"] as string) ?? "",
-        twic_card: Boolean(a["twic_card"]),
         authorized_to_work: a["authorized_to_work"] as boolean | null,
-        age_21_or_older: a["age_21_or_older"] as boolean | null,
-        accidents_last_3_years: (a["accidents_last_3_years"] as string) ?? "",
-        violations_last_3_years: (a["violations_last_3_years"] as string) ?? "",
-        license_ever_suspended: a["license_ever_suspended"] as boolean | null,
-        suspension_details: (a["suspension_details"] as string) ?? "",
-        positive_drug_test: a["positive_drug_test"] as boolean | null,
-        drug_test_details: (a["drug_test_details"] as string) ?? "",
-        can_perform_duties: a["can_perform_duties"] as boolean | null,
         how_did_you_hear: (a["how_did_you_hear"] as string) ?? "",
         additional_notes: (a["additional_notes"] as string) ?? "",
       });
@@ -242,6 +226,9 @@ function ApplicationPage() {
         end_date: e.end_date ?? "",
         reason_for_leaving: e.reason_for_leaving,
         was_dot_regulated: e.was_dot_regulated,
+        current_employer: e.current_employer,
+        commercial_driving_relevant: e.commercial_driving_relevant,
+        permission_to_contact: e.permission_to_contact,
         equipment_operated: e.equipment_operated,
       })),
     );
@@ -252,16 +239,16 @@ function ApplicationPage() {
   const completion = useMemo(() => {
     const checks = [
       Boolean(values.first_name && values.last_name && values.phone && values.email),
-      Boolean(values.cdl_number && values.cdl_state && values.cdl_class),
+      Boolean(values.cdl_state && values.cdl_class),
       employers.length > 0,
-      values.authorized_to_work !== null && values.can_perform_duties !== null,
-      docs.some((d) => d.doc_type === "cdl") && docs.some((d) => d.doc_type === "medical_card"),
+      values.authorized_to_work != null,
+      DOCUMENT_TYPES.filter(isRequiredDocument).every((type) => docs.some((d) => d.doc_type === type.key)),
       Boolean(app?.submitted_at),
     ];
     return Math.round((checks.filter(Boolean).length / checks.length) * 100);
   }, [values, employers, docs, app]);
 
-  function set<K extends keyof ApplicationDraft>(key: K, value: ApplicationDraft[K]) {
+  function set<K extends keyof PortalApplicationDraft>(key: K, value: PortalApplicationDraft[K]) {
     setValues((v) => ({ ...v, [key]: value }));
   }
 
@@ -294,13 +281,13 @@ function ApplicationPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  async function handleUpload(docType: string, file: File) {
-    if (!ACCEPTED.includes(file.type)) {
-      toast.error("Upload a PDF, JPG, PNG or WEBP file.");
+  async function handleUpload(docType: (typeof DOCUMENT_TYPES)[number]["key"], file: File) {
+    if (!isAcceptedMimeType(file.type) || !/\.(pdf|jpe?g|png)$/i.test(file.name)) {
+      toast.error("Upload a PDF, JPG, or PNG file.");
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      toast.error("Files must be 10 MB or smaller.");
+      toast.error("Files must be 10 MiB or smaller.");
       return;
     }
     setUploading(docType);
@@ -362,7 +349,7 @@ function ApplicationPage() {
       return;
     }
     const missing = DOCUMENT_TYPES.filter(
-      (d) => d.required && !docs.some((x) => x.doc_type === d.key),
+      (d) => isRequiredDocument(d) && !docs.some((x) => x.doc_type === d.key),
     );
     if (missing.length) {
       toast.error(`Upload required documents: ${missing.map((m) => m.label).join(", ")}`);
@@ -488,8 +475,6 @@ function ApplicationPage() {
                 <TextField label="Last name" required disabled={!editable} value={values.last_name ?? ""} onChange={(v) => set("last_name", v)} />
                 <TextField label="Email" type="email" required disabled={!editable} value={values.email ?? ""} onChange={(v) => set("email", v)} />
                 <TextField label="Phone" required disabled={!editable} value={values.phone ?? ""} onChange={(v) => set("phone", v)} />
-                <TextField label="Date of birth" type="date" disabled={!editable} value={values.date_of_birth ?? ""} onChange={(v) => set("date_of_birth", v)} />
-                <TextField label="Address" disabled={!editable} value={values.address_line1 ?? ""} onChange={(v) => set("address_line1", v)} />
                 <TextField label="City" disabled={!editable} value={values.city ?? ""} onChange={(v) => set("city", v)} />
                 <TextField label="State" disabled={!editable} value={values.state ?? ""} onChange={(v) => set("state", v)} />
                 <TextField label="ZIP" disabled={!editable} value={values.postal_code ?? ""} onChange={(v) => set("postal_code", v)} />
@@ -500,13 +485,8 @@ function ApplicationPage() {
             {step === 2 ? (
               <div className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <TextField label="CDL number" required disabled={!editable} value={values.cdl_number ?? ""} onChange={(v) => set("cdl_number", v)} />
                   <TextField label="CDL state" required disabled={!editable} value={values.cdl_state ?? ""} onChange={(v) => set("cdl_state", v)} />
                   <TextField label="CDL class" placeholder="A" disabled={!editable} value={values.cdl_class ?? ""} onChange={(v) => set("cdl_class", v)} />
-                  <TextField label="Years of experience" type="number" disabled={!editable} value={values.years_experience != null ? String(values.years_experience) : ""} onChange={(v) => set("years_experience", v === "" ? null : Number(v))} />
-                  <TextField label="CDL issue date" type="date" disabled={!editable} value={values.cdl_issue_date ?? ""} onChange={(v) => set("cdl_issue_date", v)} />
-                  <TextField label="CDL expiration" type="date" disabled={!editable} value={values.cdl_expiration_date ?? ""} onChange={(v) => set("cdl_expiration_date", v)} />
-                  <TextField label="Medical card expiration" type="date" disabled={!editable} value={values.medical_card_expiration ?? ""} onChange={(v) => set("medical_card_expiration", v)} />
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Endorsements</p>
@@ -534,7 +514,6 @@ function ApplicationPage() {
                     })}
                   </div>
                 </div>
-                <YesNo label="Do you hold a valid TWIC card?" value={values.twic_card} onChange={(v) => set("twic_card", v)} disabled={!editable} />
               </div>
             ) : null}
 
@@ -620,20 +599,8 @@ function ApplicationPage() {
               <div className="space-y-4">
                 <div>
                   <YesNo label="Are you legally authorized to work in the United States?" value={values.authorized_to_work} onChange={(v) => set("authorized_to_work", v)} disabled={!editable} />
-                  <YesNo label="Are you 21 years of age or older?" value={values.age_21_or_older} onChange={(v) => set("age_21_or_older", v)} disabled={!editable} />
-                  <YesNo label="Has your license ever been suspended or revoked?" value={values.license_ever_suspended} onChange={(v) => set("license_ever_suspended", v)} disabled={!editable} />
-                  <YesNo label="Have you ever tested positive on a DOT drug/alcohol test?" value={values.positive_drug_test} onChange={(v) => set("positive_drug_test", v)} disabled={!editable} />
-                  <YesNo label="Can you perform the essential functions of the job, with or without accommodation?" value={values.can_perform_duties} onChange={(v) => set("can_perform_duties", v)} disabled={!editable} />
                 </div>
                 <div className="grid gap-4">
-                  <AreaField label="Accidents in the last 3 years" value={values.accidents_last_3_years ?? ""} onChange={(v) => set("accidents_last_3_years", v)} disabled={!editable} />
-                  <AreaField label="Moving violations in the last 3 years" value={values.violations_last_3_years ?? ""} onChange={(v) => set("violations_last_3_years", v)} disabled={!editable} />
-                  {values.license_ever_suspended ? (
-                    <AreaField label="Suspension details" value={values.suspension_details ?? ""} onChange={(v) => set("suspension_details", v)} disabled={!editable} />
-                  ) : null}
-                  {values.positive_drug_test ? (
-                    <AreaField label="Drug/alcohol test details" value={values.drug_test_details ?? ""} onChange={(v) => set("drug_test_details", v)} disabled={!editable} />
-                  ) : null}
                   <AreaField label="Anything else we should know?" value={values.additional_notes ?? ""} onChange={(v) => set("additional_notes", v)} disabled={!editable} />
                 </div>
               </div>
@@ -643,7 +610,7 @@ function ApplicationPage() {
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
                   Documents are stored privately and are visible only to you and 52 Logistics
-                  recruiting staff. PDF, JPG, PNG or WEBP up to 10 MB.
+                  recruiting staff. PDF, JPG, or PNG up to 10 MiB. Medical cards and resumes are optional.
                 </p>
                 {DOCUMENT_TYPES.map((type) => {
                   const items = docs.filter((d) => d.doc_type === type.key);
@@ -653,7 +620,7 @@ function ApplicationPage() {
                         <div>
                           <p className="text-sm font-semibold">
                             {type.label}
-                            {type.required ? <span className="text-accent"> *</span> : null}
+                            {isRequiredDocument(type) ? <span className="text-accent"> *</span> : null}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {items.length} file{items.length === 1 ? "" : "s"} uploaded
@@ -737,7 +704,7 @@ function ApplicationPage() {
                   </div>
                   <div>
                     <dt className="text-[11px] font-semibold uppercase text-muted-foreground">CDL</dt>
-                    <dd className="text-sm">{values.cdl_class} · {values.cdl_number} ({values.cdl_state})</dd>
+                    <dd className="text-sm">{values.cdl_class} ({values.cdl_state})</dd>
                   </div>
                   <div>
                     <dt className="text-[11px] font-semibold uppercase text-muted-foreground">Employers listed</dt>
