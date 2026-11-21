@@ -229,38 +229,32 @@ function seed(): Tables {
   const recruiterId = DEMO_USERS[1].id;
   const adminId = DEMO_USERS[0].id;
 
+  const openingSummary =
+    "Based at the Harrisburg operation. Schedule is subject to operational needs, weather, volume, terminal requirements, safety conditions, and management direction. 'Until finished' does not promise a fixed end time.";
+
   const jobs = [
-    ["Regional Class A Driver", "regional-class-a-driver", "Mon–Fri", "Day shift", "Harrisburg, PA", "Home daily regional runs across the mid-Atlantic on dedicated freight."],
-    ["Dedicated Account Driver", "dedicated-account-driver", "Tue–Sat", "Day shift", "Harrisburg, PA", "Repeat lanes for a single customer with consistent weekly miles."],
-    ["Yard Jockey / Spotter", "yard-jockey-spotter", "Sun–Thu", "Night shift", "Mechanicsburg, PA", "Trailer spotting and yard moves at a high-volume distribution center."],
-    ["Local P&D Driver", "local-pd-driver", "Mon–Fri", "Early morning", "Harrisburg, PA", "Local pickup and delivery with multiple stops and a nightly return."],
-    ["Weekend Shuttle Driver", "weekend-shuttle-driver", "Fri–Sun", "12-hour shifts", "York, PA", "Three-day weekend shuttle schedule between two terminals."],
-    ["Diesel Technician", "diesel-technician", "Mon–Fri", "Second shift", "Harrisburg, PA", "Preventive maintenance and repairs on our Class 8 tractor fleet."],
-  ].map(([position, slug, days, schedule, location, summary], i) => ({
+    ["Linehaul URR", "linehaul-urr-sun-thu", "Sunday–Thursday", "9:30 AM until finished", "linehaul"],
+    ["Linehaul URR", "linehaul-urr-tue-sat", "Tuesday–Saturday", "9:30 AM until finished", "linehaul"],
+    ["P&D URR", "pd-urr-mon-fri", "Monday–Friday", "9:30 AM until finished", "p&d"],
+    ["Hybrid URR", "hybrid-urr-mon-fri-day", "Monday–Friday", "2:00 PM–1:00 AM", "hybrid"],
+    ["Hybrid URR", "hybrid-urr-mon-fri-evening", "Monday–Friday", "4:00 PM–11:00 PM", "hybrid"],
+    ["Spare URR", "spare-urr-fri-mon", "Friday–Monday", "Times TBD", "spare"],
+  ].map(([position, slug, days, schedule, work_category], i) => ({
     id: `j0000000-0000-4000-a000-00000000000${i + 1}`,
     position,
     slug,
     days,
     schedule,
-    location,
-    summary,
-    requirements: [
-      "Valid Class A CDL (Class B considered for yard roles)",
-      "21 years or older",
-      "Clean MVR and DOT-qualified medical card",
-      "Minimum 6 months verifiable experience",
-    ],
-    responsibilities: [
-      "Complete thorough pre-trip and post-trip inspections",
-      "Communicate status with dispatch throughout the shift",
-      "Deliver freight safely, on time and damage free",
-    ],
-    experience_notes: "Recent graduates of an accredited CDL school are welcome to apply.",
-    pay_notes: "Competitive weekly pay with performance and safety bonuses.",
-    benefits_notes: "Medical, dental, vision, paid time off and 401(k) with company match.",
-    equipment_notes: "Late-model Class 8 tractors with APUs and inverters.",
-    employment_type: i === 5 ? "full_time" : "full_time",
-    work_category: i === 5 ? "maintenance" : "driving",
+    location: "Harrisburg, PA",
+    summary: openingSummary,
+    requirements: [],
+    responsibilities: [],
+    experience_notes: null,
+    pay_notes: null,
+    benefits_notes: null,
+    equipment_notes: null,
+    employment_type: "",
+    work_category,
     application_deadline: null,
     status: "open",
     published: true,
@@ -405,7 +399,7 @@ function seed(): Tables {
         id: uid(),
         application_id: applications[2]!.id,
         author_id: recruiterId,
-        body: "Phone screen completed — strong regional experience, wants home daily.",
+        body: "Phone screen completed — interested in linehaul work and schedule options.",
         created_at: daysAgo(5),
       },
     ],
@@ -457,30 +451,23 @@ function seed(): Tables {
       },
     ],
     site_settings: [
-      { key: "company_phone", value: "(717) 555-0142", label: "Main phone", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "recruiting_phone", value: "(717) 555-0188", label: "Recruiting phone", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "recruiting_email", value: "recruiting@52logistics.demo", label: "Recruiting email", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "company_email", value: "info@52logistics.demo", label: "General email", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "address_line1", value: "4400 Industrial Park Road", label: "Address line 1", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "address_city", value: "Harrisburg", label: "City", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "address_state", value: "PA", label: "State", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "address_postal", value: "17111", label: "ZIP", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
+      { key: "recruiting_email", value: "recruiting@52logisticsinc.com", label: "Recruiting email", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
+      { key: "company_email", value: "office@52logisticsinc.com", label: "General email", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
+      { key: "address_line1", value: "510 Industrial Dr.", label: "Address line 1", group_name: "contact", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
+      { key: "address_city", value: "Harrisburg", label: "City", group_name: "contact", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
+      { key: "address_state", value: "PA", label: "State", group_name: "contact", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
+      { key: "address_postal", value: "17339", label: "ZIP", group_name: "contact", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
       { key: "office_hours", value: "Monday–Friday, 7:00 AM – 6:00 PM ET", label: "Office hours", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "dot_number", value: "DOT 1234567", label: "DOT number", group_name: "compliance", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
-      { key: "mc_number", value: "MC 987654", label: "MC number", group_name: "compliance", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
+      { key: "brand_qualifier", value: "52 Logistics, Inc. is an independent contracted service provider. FedEx names and marks remain the property of their respective owner.", label: "Brand qualifier", group_name: "legal", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
     ],
-    social_links: [
-      { id: uid(), platform: "Facebook", url: "https://facebook.com/", sort_order: 1, is_active: true },
-      { id: uid(), platform: "LinkedIn", url: "https://linkedin.com/", sort_order: 2, is_active: true },
-      { id: uid(), platform: "Indeed", url: "https://indeed.com/", sort_order: 3, is_active: true },
-    ],
+    social_links: [],
     faqs: [
-      ["How long does the application take?", "Most drivers finish the six-step application in about 15 minutes. You can save and come back at any time."],
-      ["What experience do I need?", "Six months of verifiable Class A experience for most roles. Recent CDL school graduates are considered for select positions."],
-      ["Do you run background checks?", "Yes. We use a third-party screening service for MVR, PSP and employment verification once you consent."],
-      ["When will I hear back?", "A recruiter reviews new applications within one business day and will call or email you directly."],
-      ["Is the freight home daily?", "Most regional and local roles are home daily. Weekend shuttle roles run a three-day schedule."],
-      ["What equipment do you run?", "Late-model Class 8 tractors with APUs, inverters and automatic transmissions."],
+      ["Where is 52 Logistics based?", "52 Logistics, Inc. operates from the Harrisburg, Pennsylvania area, working out of FedEx Terminal 170. Harrisburg is our only operating location."],
+      ["How do I apply?", "Review the current openings on the Careers page and choose Apply for This Position. The Apply page preselects that opening, and you can change the selection before emailing recruiting."],
+      ["Does applying guarantee employment?", "No. Submitting an application does not guarantee employment, an interview, or any specific outcome. Every application is reviewed by a person."],
+      ["What happens after I apply?", "Your inquiry goes to recruiting. A recruiter may contact you about a current opening and any next steps, including screening through First Advantage where applicable."],
+      ["Should I send sensitive documents by email?", "No. Never email Social Security numbers, driver license images, background-check documents, drug-testing records, medical details, passwords, or gate-access information. Use the secure application workflow only."],
+      ["Can I apply from my phone?", "Yes. You can review openings, select a position, and email recruiting from your phone."],
     ].map(([question, answer], i) => ({ id: uid(), question, answer, sort_order: i + 1, published: true })),
     page_content: [
       { id: uid(), page_key: "home", section_key: "hero", heading: "Freight that moves on time, drivers who stay.", body: "Regional and dedicated freight out of Harrisburg, PA.", approval_status: "approved", published: true, sort_order: 1 },
@@ -538,7 +525,7 @@ function seed(): Tables {
     notifications: [
       { id: uid(), user_id: applicantId, title: "Finish your application", body: "You are on step 3 of 6. Pick up where you left off.", category: "application", link: "/portal/application", read_at: null, created_at: daysAgo(1) },
       { id: uid(), user_id: driverId, title: "New announcement", body: "Winter driving advisory posted.", category: "announcement", link: "/portal/driver", read_at: null, created_at: daysAgo(2) },
-      { id: uid(), user_id: recruiterId, title: "New application received", body: "Sandra Willis applied for Regional Class A Driver.", category: "recruiting", link: "/portal/recruiting", read_at: daysAgo(1), created_at: daysAgo(3) },
+      { id: uid(), user_id: recruiterId, title: "New application received", body: "Sandra Willis applied for Linehaul URR.", category: "recruiting", link: "/portal/recruiting", read_at: daysAgo(1), created_at: daysAgo(3) },
     ],
     email_templates: [
       { id: uid(), template_key: "application_received", name: "Application received", subject: "We received your application", body: "Hi {{first_name}},\n\nThanks for applying to 52 Logistics. A recruiter will contact you within one business day.", description: "Sent automatically after submission.", variables: ["first_name"], is_active: true },
@@ -573,6 +560,72 @@ function seed(): Tables {
 
 let cache: Tables | null = null;
 
+function refreshStoredDemoData(parsed: Tables, fresh: Tables) {
+  const defaults = new Map(fresh.site_settings!.map((row) => [row.key, row]));
+  const aliases: Record<string, string> = {
+    email_recruiting: "recruiting_email",
+    email_office: "company_email",
+    office_email: "company_email",
+  };
+  const removed = new Set(["company_phone", "recruiting_phone", "dot_number", "mc_number"]);
+  const oldValues: Record<string, string> = {
+    recruiting_email: "recruiting@52logistics.demo",
+    company_email: "info@52logistics.demo",
+    address_line1: "4400 Industrial Park Road",
+    address_postal: "17111",
+  };
+  const settings = parsed.site_settings ?? [];
+  const present = new Set(settings.filter((row) => !aliases[row.key]).map((row) => row.key));
+  const updated = settings.flatMap((row) => {
+    if (removed.has(row.key) || aliases[row.key]) return [];
+    const replacement = defaults.get(row.key);
+    if (replacement && oldValues[row.key] === row.value) return [replacement];
+    if (row.key.startsWith("address_")) return [{ ...row, needs_verification: true }];
+    return [row];
+  });
+  for (const key of Object.values(aliases)) {
+    if (settings.some((row) => aliases[row.key] === key) && !present.has(key)) {
+      const replacement = defaults.get(key);
+      if (replacement) updated.push(replacement);
+    }
+  }
+  if (!present.has("brand_qualifier")) {
+    const qualifier = defaults.get("brand_qualifier");
+    if (qualifier) updated.push(qualifier);
+  }
+  parsed.site_settings = updated;
+  parsed.social_links = (parsed.social_links ?? []).filter((row) => {
+    if (typeof row.url !== "string") return true;
+    try {
+      const url = new URL(row.url);
+      const host = url.hostname.replace(/^www\./, "");
+      return !(url.pathname === "/" && ["facebook.com", "linkedin.com", "indeed.com"].includes(host));
+    } catch {
+      return true;
+    }
+  });
+
+  const previousJobSlugs = new Set([
+    "regional-class-a-driver",
+    "dedicated-account-driver",
+    "yard-jockey-spotter",
+    "local-pd-driver",
+    "weekend-shuttle-driver",
+    "diesel-technician",
+  ]);
+  if (parsed.jobs?.some((job) => previousJobSlugs.has(job.slug))) parsed.jobs = fresh.jobs;
+
+  const previousFaqs = new Set([
+    "How long does the application take?",
+    "What experience do I need?",
+    "Do you run background checks?",
+    "When will I hear back?",
+    "Is the freight home daily?",
+    "What equipment do you run?",
+  ]);
+  if (parsed.faqs?.some((faq) => previousFaqs.has(faq.question))) parsed.faqs = fresh.faqs;
+}
+
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -588,7 +641,9 @@ export function getDb(): Tables {
         seeding = false;
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
+        refreshStoredDemoData(parsed, fresh);
         cache = parsed;
+        persist();
         return cache;
       }
     } catch {

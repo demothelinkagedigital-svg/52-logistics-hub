@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileStack,
   GraduationCap,
+  Home as HomeIcon,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -34,7 +35,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
   const nav = [
-    { to: "/portal" as const, label: "Dashboard", icon: LayoutDashboard, show: true, exact: true },
+    { to: "/portal" as const, label: "Home", icon: HomeIcon, show: true, exact: true },
     { to: "/portal/application" as const, label: "My application", icon: ClipboardList, show: true },
     { to: "/portal/driver" as const, label: "Driver hub", icon: Truck, show: isDriver },
     {
@@ -133,6 +134,14 @@ export function PortalShell({ children }: { children: ReactNode }) {
                 <span className="truncate">{item.label}</span>
               </Link>
             ))}
+            <Link
+              to="/"
+              onClick={() => setOpen(false)}
+              className="inline-flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm font-medium text-foreground/75 transition-colors hover:bg-secondary"
+            >
+              <span className="size-4 shrink-0" aria-hidden="true" />
+              <span className="truncate">Public site</span>
+            </Link>
           </nav>
         </aside>
         <main id="main" className={cn("min-w-0 flex-1", open ? "hidden lg:block" : "block")}>

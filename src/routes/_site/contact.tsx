@@ -3,6 +3,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Mail, MapPin, Building2 } from "lucide-react";
 import { siteBootstrapQuery } from "@/routes/_site";
 import { Reveal } from "@/components/site/Reveal";
+import { formatAddress } from "@/lib/brand";
 
 export const Route = createFileRoute("/_site/contact")({
   head: () => ({
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/_site/contact")({
 function Contact() {
   const { data } = useSuspenseQuery(siteBootstrapQuery);
   const s = data.settings;
+  const address = formatAddress(s);
 
   return (
     <>
@@ -39,6 +41,24 @@ function Contact() {
             Questions about an opening, an application in progress, or the Driver Portal? Use the
             contact below and a real person will get back to you.
           </p>
+          {s["recruiting_email"] && s["company_email"] ? (
+            <p className="mt-4 text-base leading-relaxed text-ink-muted">
+              For recruiting questions, application assistance, or information about current
+              openings, contact{" "}
+              <a
+                href={`mailto:${s["recruiting_email"]}`}
+                className="underline underline-offset-4"
+              >
+                {s["recruiting_email"]}
+              </a>
+              . For general company matters, contact{" "}
+              <a href={`mailto:${s["company_email"]}`} className="underline underline-offset-4">
+                {s["company_email"]}
+              </a>
+              . Do not email Social Security numbers, driver's-license images, background-check
+              documents, drug-testing records, medical details, passwords, or gate-access information.
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -49,12 +69,14 @@ function Contact() {
           <p className="mt-2 text-sm text-muted-foreground">
             Openings, applications and hiring process questions.
           </p>
-          <a
-            href={`mailto:${s["recruiting_email"]}`}
-            className="mt-4 inline-block break-all font-medium text-primary underline-offset-4 hover:underline"
-          >
-            {s["recruiting_email"]}
-          </a>
+          {s["recruiting_email"] ? (
+            <a
+              href={`mailto:${s["recruiting_email"]}`}
+              className="mt-4 inline-block break-all font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {s["recruiting_email"]}
+            </a>
+          ) : null}
         </Reveal>
 
         <Reveal delay={0.08} className="panel p-7">
@@ -63,27 +85,25 @@ function Contact() {
           <p className="mt-2 text-sm text-muted-foreground">
             General and administrative inquiries.
           </p>
-          <a
-            href={`mailto:${s["office_email"]}`}
-            className="mt-4 inline-block break-all font-medium text-primary underline-offset-4 hover:underline"
-          >
-            {s["office_email"]}
-          </a>
+          {s["company_email"] ? (
+            <a
+              href={`mailto:${s["company_email"]}`}
+              className="mt-4 inline-block break-all font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {s["company_email"]}
+            </a>
+          ) : null}
         </Reveal>
 
         <Reveal delay={0.16} className="panel p-7">
           <MapPin className="size-6 text-accent" aria-hidden="true" />
           <h2 className="mt-4 text-lg font-bold">Locations</h2>
-          <address className="mt-3 space-y-4 text-sm not-italic text-muted-foreground">
-            <div>
-              <p className="font-semibold text-foreground">Mailing address</p>
-              <p className="mt-1 whitespace-pre-line">{s["mailing_address"]}</p>
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">Terminal</p>
-              <p className="mt-1 whitespace-pre-line">{s["terminal_address"]}</p>
-            </div>
-          </address>
+          {address ? (
+            <address className="mt-3 text-sm not-italic text-muted-foreground">
+              <p className="font-semibold text-foreground">Address</p>
+              <p className="mt-1">{address}</p>
+            </address>
+          ) : null}
         </Reveal>
       </section>
 

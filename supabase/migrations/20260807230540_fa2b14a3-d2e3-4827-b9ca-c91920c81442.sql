@@ -199,13 +199,13 @@ CREATE POLICY "admins read audit" ON public.audit_logs FOR SELECT TO authenticat
   USING (public.has_role(auth.uid(),'administrator'));
 
 -- ============ SEED ============
-INSERT INTO public.jobs (position, slug, days, schedule, summary, requirements, status, sort_order) VALUES
-('Linehaul URR','linehaul-urr-sun-thu','Sunday–Thursday','9:30 AM until finished','Scheduled linehaul runs supporting FedEx linehaul operations out of the Harrisburg terminal.', ARRAY['Valid Class A CDL','Verifiable commercial driving experience','Current DOT medical certification','Ability to meet safety and attendance requirements'],'open',1),
-('Linehaul URR','linehaul-urr-tue-sat','Tuesday–Saturday','9:30 AM until finished','Scheduled linehaul runs supporting FedEx linehaul operations out of the Harrisburg terminal.', ARRAY['Valid Class A CDL','Verifiable commercial driving experience','Current DOT medical certification','Ability to meet safety and attendance requirements'],'open',2),
-('P&D URR','pd-urr-mon-fri','Monday–Friday','9:30 AM until finished','Pickup and delivery work based at the Harrisburg operation.', ARRAY['Valid Class A CDL','Commercial driving experience','Current DOT medical certification','Comfort with city and regional driving'],'open',3),
-('Hybrid URR','hybrid-urr-afternoon','Monday–Friday','2:00 PM–1:00 AM','Combination linehaul and P&D assignment on an afternoon-to-night schedule.', ARRAY['Valid Class A CDL','Commercial driving experience','Current DOT medical certification','Availability for late-shift operations'],'open',4),
-('Hybrid URR','hybrid-urr-evening','Monday–Friday','4:00 PM–11:00 PM','Combination linehaul and P&D assignment on an evening schedule.', ARRAY['Valid Class A CDL','Commercial driving experience','Current DOT medical certification','Availability for evening operations'],'open',5),
-('Spare URR','spare-urr','Friday–Monday','Times TBD','Spare coverage supporting scheduled runs as operational needs require.', ARRAY['Valid Class A CDL','Commercial driving experience','Current DOT medical certification','Flexible availability'],'open',6);
+INSERT INTO public.jobs (position, slug, days, schedule, location, summary, requirements, status, published, sort_order) VALUES
+('Linehaul URR','linehaul-urr-sun-thu','Sunday–Thursday','9:30 AM until finished','Harrisburg, PA','Based at the Harrisburg operation. Schedule is subject to operational needs, weather, volume, terminal requirements, safety conditions, and management direction. ''Until finished'' does not promise a fixed end time.','{}','open',true,1),
+('Linehaul URR','linehaul-urr-tue-sat','Tuesday–Saturday','9:30 AM until finished','Harrisburg, PA','Based at the Harrisburg operation. Schedule is subject to operational needs, weather, volume, terminal requirements, safety conditions, and management direction. ''Until finished'' does not promise a fixed end time.','{}','open',true,2),
+('P&D URR','pd-urr-mon-fri','Monday–Friday','9:30 AM until finished','Harrisburg, PA','Based at the Harrisburg operation. Schedule is subject to operational needs, weather, volume, terminal requirements, safety conditions, and management direction. ''Until finished'' does not promise a fixed end time.','{}','open',true,3),
+('Hybrid URR','hybrid-urr-mon-fri-day','Monday–Friday','2:00 PM–1:00 AM','Harrisburg, PA','Based at the Harrisburg operation. Schedule is subject to operational needs, weather, volume, terminal requirements, safety conditions, and management direction. ''Until finished'' does not promise a fixed end time.','{}','open',true,4),
+('Hybrid URR','hybrid-urr-mon-fri-evening','Monday–Friday','4:00 PM–11:00 PM','Harrisburg, PA','Based at the Harrisburg operation. Schedule is subject to operational needs, weather, volume, terminal requirements, safety conditions, and management direction. ''Until finished'' does not promise a fixed end time.','{}','open',true,5),
+('Spare URR','spare-urr-fri-mon','Friday–Monday','Times TBD','Harrisburg, PA','Based at the Harrisburg operation. Schedule is subject to operational needs, weather, volume, terminal requirements, safety conditions, and management direction. ''Until finished'' does not promise a fixed end time.','{}','open',true,6);
 
 INSERT INTO public.site_settings (key, value, label, group_name, is_public, needs_verification) VALUES
 ('company_name','52 Logistics, Inc.','Company name','general',true,false),
@@ -215,8 +215,9 @@ INSERT INTO public.site_settings (key, value, label, group_name, is_public, need
 ('address_state','PA','State','general',true,true),
 ('address_zip','17339','ZIP','general',true,true),
 ('address_note','Owner-supplied address. City/ZIP formatting must be verified before production.','Address verification note','general',true,true),
-('email_recruiting','recruiting@52logisticsinc.com','Recruiting email','contact',true,false),
-('email_office','office@52logisticsinc.com','General office email','contact',true,false),
+('recruiting_email','recruiting@52logisticsinc.com','Recruiting email','contact',true,false),
+('company_email','office@52logisticsinc.com','General office email','contact',true,false),
+('brand_qualifier','52 Logistics, Inc. is an independent contracted service provider. FedEx names and marks remain the property of their respective owner.','Brand qualifier','legal',true,false),
 ('avr_phone','(888) 867-1142','FedEx AVR phone','operations',false,false),
 ('indeed_url',NULL,'Indeed employer profile URL','social',true,false),
 ('independent_contractor_notice','52 Logistics, Inc. is an independent contracted service provider supporting FedEx linehaul operations. 52 Logistics, Inc. is not FedEx and does not speak for FedEx.','Independent contractor notice','legal',true,true),
@@ -227,12 +228,8 @@ INSERT INTO public.social_links (platform, url, sort_order, is_active) VALUES
 
 INSERT INTO public.faqs (question, answer, sort_order) VALUES
 ('Where is 52 Logistics based?','52 Logistics, Inc. operates from the Harrisburg, Pennsylvania area, working out of FedEx Terminal 170. Harrisburg is our only operating location.',1),
-('How do I apply?','Review the current openings on the Careers page, select the opening that fits your availability, and complete the online application. The application is mobile friendly and can be saved and resumed.',2),
+('How do I apply?','Review the current openings on the Careers page, select a position, and use its Apply for This Position button. You can change your selected position before emailing recruiting.',2),
 ('Does applying guarantee employment?','No. Submitting an application does not guarantee employment, an interview, or any specific outcome. Every application is reviewed by a person.',3),
-('What happens after I apply?','You receive a confirmation with a unique reference number. A recruiter reviews your application. If your background fits a current opening, you may be invited to complete screening through our external screening provider, First Advantage.',4),
-('Should I send sensitive documents by email?','No. Never email Social Security numbers, driver license images, background-check documents, drug-testing records, medical details, passwords, or gate-access information. Use the secure application workflow only.',5),
-('Can I apply from my phone?','Yes. The application is designed mobile-first, with save-and-resume so you can finish later on any device using your secure resume link.',6),
-('What happens during onboarding?','Selected drivers receive a secure invitation to the Driver Portal, where structured onboarding tasks, the Driver Academy, handbook acknowledgement, and required systems setup are tracked.',7),
-('What is the Driver Academy?','The Driver Academy is a structured training path inside the Driver Portal covering company expectations, the handbook, required apps and systems, safety fundamentals, and terminal operating procedures.',8),
-('Where can drivers access required systems?','Required apps and systems — including Motive, Whip Around, MyFleetAI / Linehaul Central, Trip Buddy, and the AVR procedure — are listed with official links and setup instructions inside the Driver Portal.',9),
-('How are safety acknowledgements handled?','Safety resources, safety meetings, and announcements can require an electronic acknowledgement. Each acknowledgement records the exact content version, statement, and timestamp.',10);
+('What happens after I apply?','A recruiter reviews your application inquiry. If your background fits a current opening, the team may contact you about next steps. Any required screening is completed through the external screening provider.',4),
+('Should I send sensitive documents by email?','No. Never email sensitive personal documents. Use the secure process provided by the recruiting team.',5),
+('Can I apply from my phone?','Yes. You can browse openings, select a position, and email recruiting from your phone.',6);

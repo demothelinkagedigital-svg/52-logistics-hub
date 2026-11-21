@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Clock,
   Route as RouteIcon,
-  CheckCircle2,
   MapPin,
   Search,
   Briefcase,
@@ -31,7 +30,7 @@ export const Route = createFileRoute("/_site/careers/")({
       {
         name: "description",
         content:
-          "Search current CDL openings at 52 Logistics, Inc. in Harrisburg, PA: linehaul, P&D, hybrid and spare positions. Filter by category, schedule and type, then apply online.",
+          "Search current linehaul, P&D, hybrid and spare openings at 52 Logistics, Inc. in Harrisburg, PA. Review schedules and apply online.",
       },
       { property: "og:title", content: "CDL Careers & Job Search — 52 Logistics, Inc." },
       {
@@ -46,15 +45,6 @@ export const Route = createFileRoute("/_site/careers/")({
   component: Careers,
 });
 
-const REQUIREMENTS = [
-  "Valid Class A Commercial Driver's License (CDL)",
-  "Meet DOT physical and medical certification requirements",
-  "Acceptable motor vehicle and safety record",
-  "Ability to complete required screening through our external provider",
-  "Willingness to follow documented safety and terminal procedures",
-  "Reliable communication and professional conduct",
-];
-
 const WHY = [
   {
     icon: ShieldCheck,
@@ -68,8 +58,8 @@ const WHY = [
   },
   {
     icon: RouteIcon,
-    title: "Predictable schedules",
-    body: "Runs are published with defined days and start windows so you can plan your week around real information.",
+    title: "Schedules listed with each opening",
+    body: "Review the days and start times listed for each opening. Schedules may change with operational needs.",
   },
   {
     icon: Briefcase,
@@ -84,16 +74,11 @@ function Careers() {
   const { data: jobs } = useSuspenseQuery(jobsQuery);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("all");
-  const [type, setType] = useState("all");
   const [location, setLocation] = useState("all");
   const [sort, setSort] = useState<Sort>("recommended");
 
   const categories = useMemo(
     () => Array.from(new Set(jobs.map((j) => j.work_category))).sort(),
-    [jobs],
-  );
-  const types = useMemo(
-    () => Array.from(new Set(jobs.map((j) => j.employment_type))).sort(),
     [jobs],
   );
   const locations = useMemo(() => Array.from(new Set(jobs.map((j) => j.location))).sort(), [jobs]);
@@ -102,7 +87,6 @@ function Careers() {
     const needle = q.trim().toLowerCase();
     const rows = jobs.filter((j) => {
       if (category !== "all" && j.work_category !== category) return false;
-      if (type !== "all" && j.employment_type !== type) return false;
       if (location !== "all" && j.location !== location) return false;
       if (!needle) return true;
       return [j.position, j.summary, j.days, j.schedule, j.location, j.work_category]
@@ -113,14 +97,13 @@ function Careers() {
     if (sort === "category")
       return [...rows].sort((a, b) => a.work_category.localeCompare(b.work_category));
     return rows;
-  }, [jobs, q, category, type, location, sort]);
+  }, [jobs, q, category, location, sort]);
 
-  const active = q !== "" || category !== "all" || type !== "all" || location !== "all";
+  const active = q !== "" || category !== "all" || location !== "all";
 
   function reset() {
     setQ("");
     setCategory("all");
-    setType("all");
     setLocation("all");
     setSort("recommended");
   }
@@ -199,7 +182,7 @@ function Careers() {
         </div>
 
         <div className="mt-8 rounded-sm border border-border bg-surface p-5">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
             <label className="block text-sm">
               <span className="sr-only">Search openings</span>
               <span className="relative block">
@@ -226,17 +209,6 @@ function Careers() {
                 {categories.map((c) => (
                   <option key={c} value={c}>
                     {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="sr-only">Employment type</span>
-              <select value={type} onChange={(e) => setType(e.target.value)} className={selectClass}>
-                <option value="all">All types</option>
-                {types.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
                   </option>
                 ))}
               </select>
@@ -347,11 +319,13 @@ function Careers() {
                           <dt className="sr-only">Location</dt>
                           <dd>{job.location}</dd>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Briefcase className="size-4" aria-hidden="true" />
-                          <dt className="sr-only">Employment type</dt>
-                          <dd>{job.employment_type}</dd>
-                        </div>
+                        {job.employment_type ? (
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="size-4" aria-hidden="true" />
+                            <dt className="sr-only">Employment type</dt>
+                            <dd>{job.employment_type}</dd>
+                          </div>
+                        ) : null}
                       </dl>
                     </div>
                     <div className="flex flex-col gap-2 lg:col-span-4 lg:items-end">
@@ -367,7 +341,7 @@ function Careers() {
                         search={{ position: job.slug }}
                         className="group inline-flex items-center justify-center gap-2 rounded-sm bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground"
                       >
-                        Apply for this role
+                        Apply for This Position
                         <ArrowRight
                           className="size-4 transition-transform group-hover:translate-x-0.5"
                           aria-hidden="true"
@@ -384,26 +358,12 @@ function Careers() {
 
       <section
         className="border-y border-border bg-surface-2 py-16 lg:py-20"
-        aria-labelledby="req-heading"
+        aria-labelledby="hiring-heading"
       >
-        <div className="container-page grid gap-12 lg:grid-cols-2">
-          <Reveal>
-            <p className="eyebrow text-accent">Requirements</p>
-            <h2 id="req-heading" className="display-lg mt-3">
-              What we look for
-            </h2>
-            <ul className="mt-6 space-y-3">
-              {REQUIREMENTS.map((r) => (
-                <li key={r} className="flex gap-3 text-sm leading-relaxed text-foreground/85">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
-                  <span>{r}</span>
-                </li>
-              ))}
-            </ul>
-          </Reveal>
-          <Reveal delay={0.1}>
+        <div className="container-page grid gap-12 lg:grid-cols-1">
+          <Reveal className="max-w-2xl">
             <p className="eyebrow text-accent">Hiring process</p>
-            <h2 className="display-lg mt-3">What happens after you apply</h2>
+            <h2 id="hiring-heading" className="display-lg mt-3">What happens after you apply</h2>
             <ol className="mt-6 space-y-5">
               {[
                 [

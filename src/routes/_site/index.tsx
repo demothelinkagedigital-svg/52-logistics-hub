@@ -171,14 +171,23 @@ function Home() {
                 <p className="mt-4 flex-1 text-sm leading-relaxed text-foreground/80">
                   {job.summary}
                 </p>
-                <Link
-                  to="/careers"
-                  hash={job.slug}
-                  className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
-                >
-                  View details
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </Link>
+                <div className="mt-6 flex flex-wrap items-center gap-4">
+                  <Link
+                    to="/careers"
+                    hash={job.slug}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                  >
+                    View details
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                  <Link
+                    to="/apply"
+                    search={{ position: job.slug }}
+                    className="inline-flex items-center justify-center rounded-sm bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground"
+                  >
+                    Apply for This Position
+                  </Link>
+                </div>
               </article>
             </StaggerItem>
           ))}
@@ -197,34 +206,24 @@ function Home() {
               Built for drivers who take the work seriously.
             </h2>
             <p className="mt-5 text-base leading-relaxed text-muted-foreground">
-              52 Logistics, Inc. is an independent contracted service provider supporting FedEx
-              linehaul operations. We run a disciplined operation with clear expectations and direct
-              communication between drivers and management.
+              At 52 Logistics, drivers are not treated like numbers. We provide clear expectations,
+              organized onboarding, direct access to required resources, and a professional support
+              system designed to help qualified drivers succeed from application through day-to-day
+              operations.
             </p>
           </Reveal>
 
           <Stagger className="grid gap-px self-start bg-border sm:grid-cols-2 lg:col-span-8">
             {[
-              {
-                title: "Reliable, well-maintained equipment",
-                body: "Equipment care and pre/post-trip discipline are part of the job, not an afterthought. Defects get reported and handled.",
-              },
-              {
-                title: "Safety-first operating culture",
-                body: "Hours of Service, ELD, DVIR, fatigue management and defensive driving expectations are documented and reinforced.",
-              },
-              {
-                title: "Structured onboarding",
-                body: "New drivers move through a defined Driver Academy path instead of learning the operation by guesswork.",
-              },
-              {
-                title: "Direct communication",
-                body: "Announcements, safety meetings and acknowledgements are centralized in the Driver Portal so nothing gets lost.",
-              },
-            ].map((item) => (
-              <StaggerItem key={item.title} className="bg-surface p-7">
-                <h3 className="text-lg font-bold">{item.title}</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
+              "Harrisburg-based operation with clearly published schedules.",
+              "Professional fleet presentation and organized operating standards.",
+              "Structured application, screening handoff, onboarding, and Driver Academy.",
+              "Direct access to required apps, procedures, safety resources, and company contacts.",
+              "Clear acknowledgement and communication records so drivers know what is required.",
+              "A safety-first culture built on accountability, communication, and respect.",
+            ].map((point) => (
+              <StaggerItem key={point} className="bg-surface p-7">
+                <p className="text-sm leading-relaxed text-foreground/85">{point}</p>
               </StaggerItem>
             ))}
           </Stagger>
@@ -392,11 +391,10 @@ function Home() {
         <div className="container-page grid gap-10 py-20 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-8">
             <h2 id="cta-heading" className="display-lg">
-              Ready to put your CDL to work in Harrisburg?
+              Ready for your next opportunity?
             </h2>
             <p className="mt-4 max-w-2xl text-base text-muted-foreground">
-              Applications are reviewed by a person. Submitting an application does not guarantee
-              employment or an interview. Questions? Recruiting is happy to help.
+              Review the current Harrisburg openings and submit one secure application today.
             </p>
           </div>
           <div className="flex flex-col gap-3 lg:col-span-4">

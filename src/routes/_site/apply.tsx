@@ -1,9 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, ClipboardList } from "lucide-react";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { ArrowRight } from "lucide-react";
+import { getPublicJobs } from "@/lib/public-content.functions";
+
+const jobsQuery = queryOptions({
+  queryKey: ["public-jobs"],
+  queryFn: () => getPublicJobs(),
+  staleTime: 60_000,
+});
 
 export const Route = createFileRoute("/_site/apply")({
   validateSearch: (search: Record<string, unknown>): { position?: string } =>
     typeof search["position"] === "string" ? { position: search["position"] } : {},
+  loader: ({ context }) => context.queryClient.ensureQueryData(jobsQuery),
 
   head: () => ({
     meta: [
@@ -27,6 +37,17 @@ export const Route = createFileRoute("/_site/apply")({
 
 function Apply() {
   const { position } = Route.useSearch();
+  const { data: jobs } = useSuspenseQuery(jobsQuery);
+  const [selectedPosition, setSelectedPosition] = useState(position ?? "");
+  const selectedJob = jobs.find((job) => job.slug === selectedPosition);
+  const subject = encodeURIComponent(
+    selectedJob ? `Application interest: ${selectedJob.position} (${selectedJob.days})` : "Driver Application",
+  );
+  const body = encodeURIComponent(
+    selectedJob
+      ? `Position of interest: ${selectedJob.position}\nDays: ${selectedJob.days}\nSchedule: ${selectedJob.schedule}`
+      : "",
+  );
 
   return (
     <section className="container-page max-w-3xl py-20 lg:py-24">
@@ -38,16 +59,25 @@ function Apply() {
         a recruiter will follow up.
       </p>
 
-      {position ? (
-        <p className="mt-6 inline-flex items-center gap-2 rounded-sm border border-border bg-surface-2 px-4 py-2.5 text-sm">
-          <ClipboardList className="size-4 text-accent" aria-hidden="true" />
-          Selected position: <span className="font-mono font-semibold">{position}</span>
-        </p>
-      ) : null}
+      <label className="mt-8 block max-w-xl text-sm font-semibold">
+        Position of interest
+        <select
+          value={selectedPosition}
+          onChange={(event) => setSelectedPosition(event.target.value)}
+          className="mt-2 block w-full rounded-sm border border-input bg-surface px-3 py-3 font-normal"
+        >
+          <option value="">Choose an opening</option>
+          {jobs.map((job) => (
+            <option key={job.id} value={job.slug}>
+              {job.position} — {job.days}, {job.schedule}
+            </option>
+          ))}
+        </select>
+      </label>
 
       <div className="mt-10 flex flex-col gap-3 sm:flex-row">
         <a
-          href="mailto:recruiting@52logisticsinc.com?subject=Driver%20Application"
+          href={`mailto:recruiting@52logisticsinc.com?subject=${subject}&body=${body}`}
           className="inline-flex items-center justify-center gap-2 rounded-sm bg-accent px-6 py-3.5 text-sm font-semibold text-accent-foreground"
         >
           Email recruiting
