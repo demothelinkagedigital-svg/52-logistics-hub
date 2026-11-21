@@ -28,6 +28,6 @@ export function formatAddress(s: Record<string, string | null>) {
   const line1 = s["address_line1"] ?? "";
   const city = s["address_city"] ?? "";
   const state = s["address_state"] ?? "";
-  const zip = s["address_zip"] ?? "";
+  const zip = s["address_postal"] ?? s["address_zip"] ?? "";
   return [line1, [city, state].filter(Boolean).join(", "), zip].filter(Boolean).join(" · ");
 }

@@ -125,9 +125,11 @@ function About() {
                 </dd>
               </div>
             </dl>
-            <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted-foreground">
-              {data.settings["independent_contractor_notice"]}
-            </p>
+            {data.settings["brand_qualifier"] ? (
+              <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted-foreground">
+                {data.settings["brand_qualifier"]}
+              </p>
+            ) : null}
             <Link
               to="/careers"
               className="mt-6 inline-flex w-full items-center justify-center rounded-sm bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground"

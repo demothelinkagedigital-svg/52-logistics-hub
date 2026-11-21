@@ -33,7 +33,7 @@ export type SiteSettings = Record<string, string | null>;
 
 export type PublicFaq = { id: string; question: string; answer: string };
 
-export type PublicSocialLink = { id: string; platform: string; url: string | null };
+export type PublicSocialLink = { id: string; platform: string; url: string | null; is_active: boolean };
 
 export type SiteBootstrap = {
   settings: SiteSettings;
@@ -45,7 +45,7 @@ export const getSiteBootstrap = createServerFn({ method: "GET" }).handler(
     const sb = publicClient();
     const [settingsRes, socialRes] = await Promise.all([
       sb.from("site_settings").select("key, value"),
-      sb.from("social_links").select("id, platform, url").order("sort_order"),
+      sb.from("social_links").select("id, platform, url, is_active").order("sort_order"),
     ]);
     const settings: SiteSettings = {};
     for (const row of settingsRes.data ?? []) settings[row.key] = row.value;

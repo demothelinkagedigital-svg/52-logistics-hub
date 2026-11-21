@@ -457,23 +457,16 @@ function seed(): Tables {
       },
     ],
     site_settings: [
-      { key: "company_phone", value: "(717) 555-0142", label: "Main phone", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "recruiting_phone", value: "(717) 555-0188", label: "Recruiting phone", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "recruiting_email", value: "recruiting@52logistics.demo", label: "Recruiting email", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "company_email", value: "info@52logistics.demo", label: "General email", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "address_line1", value: "4400 Industrial Park Road", label: "Address line 1", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "address_city", value: "Harrisburg", label: "City", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "address_state", value: "PA", label: "State", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "address_postal", value: "17111", label: "ZIP", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
+      { key: "recruiting_email", value: "recruiting@52logisticsinc.com", label: "Recruiting email", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
+      { key: "company_email", value: "office@52logisticsinc.com", label: "General email", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
+      { key: "address_line1", value: "510 Industrial Dr.", label: "Address line 1", group_name: "contact", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
+      { key: "address_city", value: "Harrisburg", label: "City", group_name: "contact", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
+      { key: "address_state", value: "PA", label: "State", group_name: "contact", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
+      { key: "address_postal", value: "17339", label: "ZIP", group_name: "contact", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
       { key: "office_hours", value: "Monday–Friday, 7:00 AM – 6:00 PM ET", label: "Office hours", group_name: "contact", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
-      { key: "dot_number", value: "DOT 1234567", label: "DOT number", group_name: "compliance", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
-      { key: "mc_number", value: "MC 987654", label: "MC number", group_name: "compliance", is_public: true, needs_verification: true, updated_at: daysAgo(30) },
+      { key: "brand_qualifier", value: "52 Logistics, Inc. is an independent contracted service provider. FedEx names and marks remain the property of their respective owner.", label: "Brand qualifier", group_name: "legal", is_public: true, needs_verification: false, updated_at: daysAgo(30) },
     ],
-    social_links: [
-      { id: uid(), platform: "Facebook", url: "https://facebook.com/", sort_order: 1, is_active: true },
-      { id: uid(), platform: "LinkedIn", url: "https://linkedin.com/", sort_order: 2, is_active: true },
-      { id: uid(), platform: "Indeed", url: "https://indeed.com/", sort_order: 3, is_active: true },
-    ],
+    social_links: [],
     faqs: [
       ["How long does the application take?", "Most drivers finish the six-step application in about 15 minutes. You can save and come back at any time."],
       ["What experience do I need?", "Six months of verifiable Class A experience for most roles. Recent CDL school graduates are considered for select positions."],
@@ -573,6 +566,52 @@ function seed(): Tables {
 
 let cache: Tables | null = null;
 
+function refreshStoredDemoSettings(parsed: Tables, fresh: Tables) {
+  const defaults = new Map(fresh.site_settings!.map((row) => [row.key, row]));
+  const aliases: Record<string, string> = {
+    email_recruiting: "recruiting_email",
+    email_office: "company_email",
+    office_email: "company_email",
+  };
+  const removed = new Set(["company_phone", "recruiting_phone", "dot_number", "mc_number"]);
+  const oldValues: Record<string, string> = {
+    recruiting_email: "recruiting@52logistics.demo",
+    company_email: "info@52logistics.demo",
+    address_line1: "4400 Industrial Park Road",
+    address_postal: "17111",
+  };
+  const settings = parsed.site_settings ?? [];
+  const present = new Set(settings.filter((row) => !aliases[row.key]).map((row) => row.key));
+  const updated = settings.flatMap((row) => {
+    if (removed.has(row.key) || aliases[row.key]) return [];
+    const replacement = defaults.get(row.key);
+    if (replacement && oldValues[row.key] === row.value) return [replacement];
+    if (row.key.startsWith("address_")) return [{ ...row, needs_verification: true }];
+    return [row];
+  });
+  for (const key of Object.values(aliases)) {
+    if (settings.some((row) => aliases[row.key] === key) && !present.has(key)) {
+      const replacement = defaults.get(key);
+      if (replacement) updated.push(replacement);
+    }
+  }
+  if (!present.has("brand_qualifier")) {
+    const qualifier = defaults.get("brand_qualifier");
+    if (qualifier) updated.push(qualifier);
+  }
+  parsed.site_settings = updated;
+  parsed.social_links = (parsed.social_links ?? []).filter((row) => {
+    if (typeof row.url !== "string") return true;
+    try {
+      const url = new URL(row.url);
+      const host = url.hostname.replace(/^www\./, "");
+      return !(url.pathname === "/" && ["facebook.com", "linkedin.com", "indeed.com"].includes(host));
+    } catch {
+      return true;
+    }
+  });
+}
+
 function isBrowser() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
@@ -588,7 +627,9 @@ export function getDb(): Tables {
         seeding = false;
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
+        refreshStoredDemoSettings(parsed, fresh);
         cache = parsed;
+        persist();
         return cache;
       }
     } catch {

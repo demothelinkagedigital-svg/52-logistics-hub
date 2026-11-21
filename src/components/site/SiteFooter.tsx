@@ -9,8 +9,15 @@ export function SiteFooter({
   settings: SiteSettings;
   social: PublicSocialLink[];
 }) {
-  const active = social.filter((s) => s.url);
-  const indeed = settings["indeed_url"];
+  const active = social.filter((s) => {
+    if (!s.is_active || !s.url) return false;
+    try {
+      const url = new URL(s.url);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+      return false;
+    }
+  });
 
   return (
     <footer className="surface-ink mt-24">
@@ -23,9 +30,11 @@ export function SiteFooter({
             width={168}
             height={56}
           />
-          <p className="mt-5 max-w-sm text-sm leading-relaxed text-ink-muted">
-            {settings["independent_contractor_notice"]}
-          </p>
+          {settings["brand_qualifier"] ? (
+            <p className="mt-5 max-w-sm text-xs leading-relaxed text-ink-muted">
+              {settings["brand_qualifier"]}
+            </p>
+          ) : null}
           <address className="mt-5 space-y-1 text-sm not-italic text-ink-muted">
             <div className="font-medium text-ink-foreground">{settings["terminal"]}</div>
             <div>{formatAddress(settings)}</div>
@@ -68,64 +77,53 @@ export function SiteFooter({
         <div className="md:col-span-4">
           <h2 className="eyebrow text-accent">Contact</h2>
           <ul className="mt-4 space-y-2.5 text-sm">
-            <li>
-              <span className="block text-xs uppercase tracking-wide text-ink-muted">
-                Recruiting
-              </span>
-              <a
-                href={`mailto:${settings["email_recruiting"]}`}
-                className="font-medium text-ink-foreground underline-offset-4 hover:underline"
-              >
-                {settings["email_recruiting"]}
-              </a>
-            </li>
-            <li>
-              <span className="block text-xs uppercase tracking-wide text-ink-muted">
-                General office
-              </span>
-              <a
-                href={`mailto:${settings["email_office"]}`}
-                className="font-medium text-ink-foreground underline-offset-4 hover:underline"
-              >
-                {settings["email_office"]}
-              </a>
-            </li>
+            {settings["recruiting_email"] ? (
+              <li>
+                <span className="block text-xs uppercase tracking-wide text-ink-muted">
+                  Recruiting
+                </span>
+                <a
+                  href={`mailto:${settings["recruiting_email"]}`}
+                  className="font-medium text-ink-foreground underline-offset-4 hover:underline"
+                >
+                  {settings["recruiting_email"]}
+                </a>
+              </li>
+            ) : null}
+            {settings["company_email"] ? (
+              <li>
+                <span className="block text-xs uppercase tracking-wide text-ink-muted">
+                  General office
+                </span>
+                <a
+                  href={`mailto:${settings["company_email"]}`}
+                  className="font-medium text-ink-foreground underline-offset-4 hover:underline"
+                >
+                  {settings["company_email"]}
+                </a>
+              </li>
+            ) : null}
           </ul>
 
-          <h2 className="eyebrow mt-8 text-accent">Follow</h2>
-          {active.length === 0 && !indeed ? (
-            <p className="mt-3 text-sm text-ink-muted">
-              Social profiles are not published yet. They are configured from the admin settings
-              once verified.
-            </p>
-          ) : (
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {active.map((s) => (
-                <li key={s.id}>
-                  <a
-                    href={s.url!}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex rounded-sm border border-ink-border px-3 py-1.5 text-sm text-ink-foreground hover:border-accent"
-                  >
-                    {s.platform}
-                  </a>
-                </li>
-              ))}
-              {indeed ? (
-                <li>
-                  <a
-                    href={indeed}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex rounded-sm border border-ink-border px-3 py-1.5 text-sm text-ink-foreground hover:border-accent"
-                  >
-                    Indeed
-                  </a>
-                </li>
-              ) : null}
-            </ul>
-          )}
+          {active.length ? (
+            <>
+              <h2 className="eyebrow mt-8 text-accent">Follow</h2>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {active.map((s) => (
+                  <li key={s.id}>
+                    <a
+                      href={s.url!}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex rounded-sm border border-ink-border px-3 py-1.5 text-sm text-ink-foreground hover:border-accent"
+                    >
+                      {s.platform}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
         </div>
       </div>
 
