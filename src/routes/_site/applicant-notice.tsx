@@ -20,6 +20,9 @@ export const Route = createFileRoute("/_site/applicant-notice")({
   }),
   component: () => (
     <section className="container-page max-w-3xl py-20">
+      <p className="mb-5 text-xs leading-relaxed text-muted-foreground">
+        Draft — pending review and approval by 52 Logistics counsel/HR before production use.
+      </p>
       <p className="eyebrow text-accent">Legal</p>
       <h1 className="display-xl mt-5">Applicant Notice</h1>
       <div className="mt-8 space-y-5 leading-relaxed text-foreground/85">

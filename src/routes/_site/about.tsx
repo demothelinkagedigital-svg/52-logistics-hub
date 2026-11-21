@@ -2,7 +2,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { siteBootstrapQuery } from "@/routes/_site";
 import { Reveal } from "@/components/site/Reveal";
-import { APPROVED_FLEET_IDS } from "@/lib/brand";
 
 export const Route = createFileRoute("/_site/about")({
   head: () => ({
@@ -11,13 +10,13 @@ export const Route = createFileRoute("/_site/about")({
       {
         name: "description",
         content:
-          "52 Logistics, Inc. is a Harrisburg-based transportation company and independent contracted service provider supporting FedEx linehaul operations from Terminal 170.",
+          "52 Logistics, Inc. is a Harrisburg-based transportation company and contracted service provider supporting FedEx linehaul operations from Terminal 170.",
       },
       { property: "og:title", content: "About 52 Logistics, Inc." },
       {
         property: "og:description",
         content:
-          "A Harrisburg-based transportation company built on dependable service, safe operating practices and well-maintained equipment.",
+          "52 Logistics, Inc. is a Harrisburg-based transportation company and contracted service provider focused on dependable service, safe operating practices, well-maintained equipment, and disciplined communication.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -38,8 +37,10 @@ function About() {
             A Harrisburg operation, run with discipline.
           </h1>
           <p className="mt-7 text-lg leading-relaxed text-ink-muted">
-            52 Logistics, Inc. is a Harrisburg-based transportation company and an independent
-            contracted service provider supporting FedEx linehaul operations from Terminal 170.
+            52 Logistics, Inc. is a Harrisburg-based transportation company and contracted service
+            provider supporting FedEx linehaul operations from Terminal 170. We are focused on
+            dependable service, safe operating practices, well-maintained equipment, and the
+            disciplined communication required to move freight consistently.
           </p>
         </div>
       </section>
@@ -49,84 +50,32 @@ function About() {
           <h2 className="display-lg">How we operate</h2>
           <div className="mt-6 space-y-5 text-base leading-relaxed text-foreground/85">
             <p>
-              Our work is straightforward: move freight on schedule, safely, with equipment that is
-              maintained and drivers who know what is expected of them. That standard is what our
-              customer relationship is built on, and it is what we hire for.
+              Our company was built on the belief that strong transportation performance starts with
+              strong people. We set clear expectations, provide structured onboarding, centralize the
+              tools and information drivers need, and maintain direct communication between drivers
+              and management. From the application process through ongoing training and company
+              announcements, our goal is to make every step organized, professional, and easy to
+              follow.
             </p>
             <p>
-              We keep communication direct. Drivers know who to call, what the escalation path is,
-              and where to find the current version of any procedure. Announcements, safety
-              material, handbook versions and acknowledgements all live in one authenticated Driver
-              Portal rather than scattered across text threads.
+              52 Logistics currently operates from the Harrisburg terminal with a professionally
+              maintained fleet. Our drivers support linehaul, pickup and delivery, hybrid, and spare
+              coverage according to the needs of the operation. We value safety, accountability,
+              punctuality, care of equipment, accurate documentation, and respect—for customers,
+              terminal partners, the public, and one another.
             </p>
             <p>
-              New drivers are not left to figure the operation out on their own. Structured
-              onboarding through the Driver Academy covers company expectations, the handbook,
-              required apps and systems, safety fundamentals, and terminal and gate procedure — with
-              management verification before operational release.
+              We are continuing to strengthen our company through better systems, better training
+              access, and a driver-centered digital experience. Qualified professionals who take
+              pride in doing the job correctly are invited to explore our current opportunities.
             </p>
           </div>
-
-          <h2 className="display-lg mt-14">What we stand on</h2>
-          <ul className="mt-6 grid gap-px bg-border sm:grid-cols-2">
-            {[
-              [
-                "Dependable service",
-                "Consistent, on-schedule performance for the operation we support.",
-              ],
-              [
-                "Safe operating practices",
-                "Documented safety expectations, reinforced and acknowledged.",
-              ],
-              ["Well-maintained equipment", "Pre/post-trip discipline and real defect reporting."],
-              [
-                "Disciplined communication",
-                "Clear channels, clear escalation, current information.",
-              ],
-              ["Strong people", "Professional drivers who take responsibility for the work."],
-              ["Clear expectations", "Nothing important left implied or undocumented."],
-            ].map(([title, body]) => (
-              <li key={title} className="bg-surface p-6">
-                <h3 className="font-bold">{title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{body}</p>
-              </li>
-            ))}
-          </ul>
         </Reveal>
 
         <Reveal delay={0.1} className="lg:col-span-5">
           <div className="panel sticky top-28 p-7">
-            <h2 className="eyebrow text-accent">Operation at a glance</h2>
-            <dl className="mt-5 space-y-5 text-sm">
-              <div>
-                <dt className="font-semibold">Location</dt>
-                <dd className="mt-1 text-muted-foreground">
-                  Harrisburg, Pennsylvania — our only operating location.
-                </dd>
-              </div>
-              <div>
-                <dt className="font-semibold">Terminal</dt>
-                <dd className="mt-1 text-muted-foreground">{data.settings["terminal"]}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold">Service type</dt>
-                <dd className="mt-1 text-muted-foreground">
-                  Linehaul, P&amp;D, hybrid and spare assignments.
-                </dd>
-              </div>
-              <div>
-                <dt className="font-semibold">Approved unit identifiers</dt>
-                <dd className="mt-1 flex flex-wrap gap-1.5 font-mono text-xs">
-                  {APPROVED_FLEET_IDS.map((id) => (
-                    <span key={id} className="rounded-sm border border-border px-2 py-1">
-                      {id}
-                    </span>
-                  ))}
-                </dd>
-              </div>
-            </dl>
             {data.settings["brand_qualifier"] ? (
-              <p className="mt-6 border-t border-border pt-5 text-xs leading-relaxed text-muted-foreground">
+              <p className="text-xs leading-relaxed text-muted-foreground">
                 {data.settings["brand_qualifier"]}
               </p>
             ) : null}

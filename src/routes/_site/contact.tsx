@@ -41,6 +41,24 @@ function Contact() {
             Questions about an opening, an application in progress, or the Driver Portal? Use the
             contact below and a real person will get back to you.
           </p>
+          {s["recruiting_email"] && s["company_email"] ? (
+            <p className="mt-4 text-base leading-relaxed text-ink-muted">
+              For recruiting questions, application assistance, or information about current
+              openings, contact{" "}
+              <a
+                href={`mailto:${s["recruiting_email"]}`}
+                className="underline underline-offset-4"
+              >
+                {s["recruiting_email"]}
+              </a>
+              . For general company matters, contact{" "}
+              <a href={`mailto:${s["company_email"]}`} className="underline underline-offset-4">
+                {s["company_email"]}
+              </a>
+              . Do not email Social Security numbers, driver's-license images, background-check
+              documents, drug-testing records, medical details, passwords, or gate-access information.
+            </p>
+          ) : null}
         </div>
       </section>
 
