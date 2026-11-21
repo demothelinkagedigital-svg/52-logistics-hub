@@ -1,6 +1,6 @@
 # Work Context
 
-This document records the work completed across the three cleanup and content-update prompts.
+This document records the work completed across the cleanup and content-update prompts.
 
 ## 1. Project documentation and package cleanup
 
@@ -35,6 +35,15 @@ This document records the work completed across the three cleanup and content-up
 - Updated stored demo data handling so old seeded jobs and FAQs are replaced for existing localStorage sessions.
 - `npm run build` passed. The homepage, Careers page, job detail, Apply page, and FAQ page were checked in the browser.
 
+## 4. Public copy, portal navigation, and legal-page notices
+
+- Replaced the homepage “Why drive with us” introduction, six benefit points, and closing call to action with the requested copy.
+- Replaced the About-page content with the four approved paragraphs and removed the prior unsupported operational claims and sidebar details.
+- Added recruiting and general-contact guidance plus a warning not to email sensitive information. The displayed email addresses and mailto links use the editable `recruiting_email` and `company_email` settings.
+- Added a keyboard-focusable “Home” link to `/portal` and a separate “Public site” link to `/` in the shared portal navigation; retained the logo link to `/`.
+- Added the exact draft-review notice to Privacy, Terms, Applicant Notice, and Accessibility pages.
+- `npm run build` passed. Changed public pages were checked in the browser at desktop and mobile widths. The portal preview showed the unauthenticated demo account chooser, so authenticated navigation was verified in source rather than visually after login.
+
 ## Files changed across these prompts
 
 - `README.md`
@@ -44,10 +53,15 @@ This document records the work completed across the three cleanup and content-up
 - `src/integrations/lovable/index.ts` (deleted)
 - `src/lib/mock/db.ts`
 - `src/components/site/SiteFooter.tsx`
+- `src/components/portal/PortalShell.tsx`
 - `src/lib/brand.ts`
 - `src/lib/public-content.functions.ts`
 - `src/routes/_site/about.tsx`
 - `src/routes/_site/contact.tsx`
+- `src/routes/_site/privacy.tsx`
+- `src/routes/_site/terms.tsx`
+- `src/routes/_site/applicant-notice.tsx`
+- `src/routes/_site/accessibility.tsx`
 - `src/routes/_site/index.tsx`
 - `src/routes/_site/careers.index.tsx`
 - `src/routes/_site/careers.$slug.tsx`
