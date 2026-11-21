@@ -13,6 +13,16 @@ UPDATE public.jobs SET work_category =
        WHEN position ILIKE 'spare%' THEN 'Spare'
        ELSE 'Linehaul' END;
 
+UPDATE public.jobs SET employment_type = ''
+WHERE slug IN (
+  'linehaul-urr-sun-thu',
+  'linehaul-urr-tue-sat',
+  'pd-urr-mon-fri',
+  'hybrid-urr-mon-fri-day',
+  'hybrid-urr-mon-fri-evening',
+  'spare-urr-fri-mon'
+);
+
 -- ============ APPLICATIONS ============
 ALTER TABLE public.applications
   ADD COLUMN IF NOT EXISTS assigned_recruiter uuid,

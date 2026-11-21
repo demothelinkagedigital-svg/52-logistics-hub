@@ -77,7 +77,9 @@ function JobDetail() {
     "@type": "JobPosting",
     title: job.position,
     description: job.summary ?? job.position,
-    employmentType: job.employment_type.toUpperCase().replace(/[^A-Z]/g, "_"),
+    ...(job.employment_type
+      ? { employmentType: job.employment_type.toUpperCase().replace(/[^A-Z]/g, "_") }
+      : {}),
     datePosted: job.updated_at,
     ...(job.application_deadline ? { validThrough: job.application_deadline } : {}),
     hiringOrganization: { "@type": "Organization", name: COMPANY },
@@ -118,11 +120,13 @@ function JobDetail() {
               <dt className="sr-only">Schedule</dt>
               <dd>{job.schedule}</dd>
             </div>
-            <div className="flex items-center gap-2">
-              <Briefcase className="size-4" aria-hidden="true" />
-              <dt className="sr-only">Employment type</dt>
-              <dd>{job.employment_type}</dd>
-            </div>
+            {job.employment_type ? (
+              <div className="flex items-center gap-2">
+                <Briefcase className="size-4" aria-hidden="true" />
+                <dt className="sr-only">Employment type</dt>
+                <dd>{job.employment_type}</dd>
+              </div>
+            ) : null}
             {job.application_deadline ? (
               <div className="flex items-center gap-2">
                 <CalendarDays className="size-4" aria-hidden="true" />

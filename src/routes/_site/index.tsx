@@ -171,14 +171,23 @@ function Home() {
                 <p className="mt-4 flex-1 text-sm leading-relaxed text-foreground/80">
                   {job.summary}
                 </p>
-                <Link
-                  to="/careers"
-                  hash={job.slug}
-                  className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
-                >
-                  View details
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </Link>
+                <div className="mt-6 flex flex-wrap items-center gap-4">
+                  <Link
+                    to="/careers"
+                    hash={job.slug}
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                  >
+                    View details
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                  <Link
+                    to="/apply"
+                    search={{ position: job.slug }}
+                    className="inline-flex items-center justify-center rounded-sm bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground"
+                  >
+                    Apply for This Position
+                  </Link>
+                </div>
               </article>
             </StaggerItem>
           ))}
