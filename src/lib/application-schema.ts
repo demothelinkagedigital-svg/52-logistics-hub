@@ -15,17 +15,17 @@ export const DOCUMENT_TYPES = [
 ] as const;
 
 export const APPLICATION_STEPS = [
-  { step: 1, title: "Personal Information", blurb: "How we reach you." },
-  { step: 2, title: "CDL & Experience", blurb: "License, endorsements, driving history." },
-  { step: 3, title: "Employment History", blurb: "Last 3 years, DOT-regulated employers." },
-  { step: 4, title: "Eligibility & Safety", blurb: "DOT screening questions." },
-  { step: 5, title: "Documents", blurb: "Securely upload your credentials." },
-  { step: 6, title: "Review & Certify", blurb: "Confirm and submit." },
+  { step: 1, title: "Position & identity", blurb: "Opening and contact information." },
+  { step: 2, title: "Eligibility & CDL", blurb: "Work eligibility and driving experience." },
+  { step: 3, title: "Safety & availability", blurb: "Schedule, start date, and medical card." },
+  { step: 4, title: "Employment history", blurb: "Current or most recent employer." },
+  { step: 5, title: "Documents", blurb: "Optional private uploads." },
+  { step: 6, title: "Certification", blurb: "Review, consent, and sign." },
 ] as const;
 
 export const employerSchema = z.object({
   id: z.string().optional(),
-  employer_name: z.string().trim().min(1, "Employer name is required").max(160),
+  employer_name: z.string().trim().max(160),
   position_held: z.string().trim().max(120).optional().nullable(),
   city: z.string().trim().max(80).optional().nullable(),
   state: z.string().trim().max(40).optional().nullable(),
@@ -79,6 +79,8 @@ export const applicationDraftSchema = z.object({
   signature_name: nn(120),
   signature_signed_at: z.string().datetime({ offset: true }).optional().nullable(),
   certified: z.boolean().optional(),
+  qualification_gap: z.boolean().optional(),
+  qualification_gap_reasons: z.array(z.string().max(160)).optional(),
 });
 export type ApplicationDraft = z.infer<typeof applicationDraftSchema>;
 

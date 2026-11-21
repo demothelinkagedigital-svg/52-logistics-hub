@@ -31,7 +31,7 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
       supabase
         .from("applications")
         .select(
-          "id, reference_code, first_name, last_name, preferred_name, email, phone, preferred_contact_method, city, state, postal_code, position_title, status, is_18_or_older, cdl_class, cdl_state, cdl_status, endorsements, commercial_experience_years, tractor_trailer_experience, linehaul_pd_experience, schedule_availability, start_availability, authorized_to_work, can_perform_duties_with_or_without_accommodation, medical_card_status, medical_card_expiration_month, medical_card_expiration_year, agrees_to_comply, consent_electronic_records, signature_signed_at, signature_name, certified, how_did_you_hear, additional_notes",
+          "id, reference_code, first_name, last_name, preferred_name, email, phone, preferred_contact_method, city, state, postal_code, position_title, status, is_18_or_older, cdl_class, cdl_state, cdl_status, endorsements, commercial_experience_years, tractor_trailer_experience, linehaul_pd_experience, schedule_availability, start_availability, authorized_to_work, can_perform_duties_with_or_without_accommodation, medical_card_status, medical_card_expiration_month, medical_card_expiration_year, agrees_to_comply, consent_electronic_records, signature_signed_at, signature_name, certified, how_did_you_hear, additional_notes, qualification_gap, qualification_gap_reasons",
         )
         .eq("id", data.id)
         .maybeSingle(),

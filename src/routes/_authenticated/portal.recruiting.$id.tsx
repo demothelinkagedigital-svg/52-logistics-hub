@@ -123,6 +123,18 @@ function ApplicantDetail() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          {a.qualification_gap ? (
+            <Panel title="Qualification review flag">
+              <p className="text-sm font-medium">
+                This application has one or more qualification gaps for human review.
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {(a.qualification_gap_reasons ?? []).map((reason: string) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </Panel>
+          ) : null}
           <Panel title="Applicant information">
             <dl className="grid gap-4 sm:grid-cols-3">
               <Field label="Preferred name" value={displayValue(a.preferred_name)} />
@@ -203,7 +215,9 @@ function ApplicantDetail() {
                         .join(" · ")}
                     </p>
                     {e.reason_for_leaving ? (
-                      <p className="mt-1 text-xs text-muted-foreground">Left: {e.reason_for_leaving}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Left: {e.reason_for_leaving}
+                      </p>
                     ) : null}
                     <dl className="mt-2 grid gap-2 sm:grid-cols-3">
                       <Field label="Current employer" value={displayValue(e.current_employer)} />
