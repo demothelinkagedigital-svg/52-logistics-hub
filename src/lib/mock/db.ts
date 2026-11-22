@@ -57,15 +57,6 @@ export const DEMO_USERS = [
     blurb: "Driver hub, Academy courses, handbook and safety center.",
   },
   {
-    id: "44444444-4444-4444-a444-444444444444",
-    email: "applicant@52logistics.demo",
-    full_name: "Tyrone Baker",
-    title: "Applicant",
-    roles: ["applicant"],
-    label: "Applicant",
-    blurb: "The six-step driver application with save and resume.",
-  },
-  {
     id: "55555555-5555-4555-a555-555555555555",
     email: "content@52logistics.demo",
     full_name: "Priya Nair",
@@ -277,7 +268,6 @@ function buildCourseContent() {
 
 function seed(): Tables {
   const lms = buildCourseContent();
-  const applicantId = DEMO_USERS[3].id;
   const driverId = DEMO_USERS[2].id;
   const recruiterId = DEMO_USERS[1].id;
   const adminId = DEMO_USERS[0].id;
@@ -655,7 +645,7 @@ function seed(): Tables {
       ],
       [
         "How do I apply?",
-        "Review the current openings on the Careers page and choose Apply for This Position. The Apply page preselects that opening, and you can change the selection before emailing recruiting.",
+        "Choose an opening on the Careers page and complete the secure application. You may save and return using your private resume link.",
       ],
       [
         "Does applying guarantee employment?",
@@ -663,7 +653,7 @@ function seed(): Tables {
       ],
       [
         "What happens after I apply?",
-        "Your inquiry goes to recruiting. A recruiter may contact you about a current opening and any next steps, including screening through First Advantage where applicable.",
+        "Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.",
       ],
       [
         "Should I send sensitive documents by email?",
@@ -671,7 +661,7 @@ function seed(): Tables {
       ],
       [
         "Can I apply from my phone?",
-        "Yes. You can review openings, select a position, and email recruiting from your phone.",
+        "Yes. The complete application, signature, save/resume, and approved uploads must work on current iPhone and Android browsers.",
       ],
     ].map(([question, answer], i) => ({
       id: uid(),
@@ -870,16 +860,6 @@ function seed(): Tables {
       },
     ],
     notifications: [
-      {
-        id: uid(),
-        user_id: applicantId,
-        title: "Finish your application",
-        body: "You are on step 3 of 6. Pick up where you left off.",
-        category: "application",
-        link: "/portal/application",
-        read_at: null,
-        created_at: daysAgo(1),
-      },
       {
         id: uid(),
         user_id: driverId,
@@ -1083,6 +1063,12 @@ export function getDb(): Tables {
         if (!parsed["site_settings"]!.some((row) => row["key"] === "application_resume_days")) {
           parsed["site_settings"]!.push(fresh["site_settings"]!.find((row) => row["key"] === "application_resume_days")!);
         }
+        const faqAnswers: Record<string, string> = {
+          "How do I apply?": "Choose an opening on the Careers page and complete the secure application. You may save and return using your private resume link.",
+          "What happens after I apply?": "Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.",
+          "Can I apply from my phone?": "Yes. The complete application, signature, save/resume, and approved uploads must work on current iPhone and Android browsers.",
+        };
+        for (const faq of parsed["faqs"] ?? []) if (faqAnswers[faq["question"]]) faq["answer"] = faqAnswers[faq["question"]];
         cache = parsed;
         persist();
         return cache;

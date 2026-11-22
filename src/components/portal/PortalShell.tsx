@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
 import {
   Bell,
-  ClipboardList,
   FileStack,
   GraduationCap,
   Home as HomeIcon,
@@ -36,7 +35,6 @@ export function PortalShell({ children }: { children: ReactNode }) {
 
   const nav = [
     { to: "/portal" as const, label: "Home", icon: HomeIcon, show: true, exact: true },
-    { to: "/portal/application" as const, label: "My application", icon: ClipboardList, show: true },
     { to: "/portal/driver" as const, label: "Driver hub", icon: Truck, show: isDriver },
     {
       to: "/portal/academy" as const,

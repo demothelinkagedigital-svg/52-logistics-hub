@@ -93,6 +93,8 @@ function Auth() {
             </li>
           ))}
         </ul>
+        <p className="mt-6 text-sm text-ink-muted">Applicants don't need an account. <Link to="/apply" className="font-semibold text-ink-foreground underline">Start at /apply.</Link></p>
+        <p className="mt-2 text-sm text-ink-muted">Demo only: <a href="/apply/resume/demo-resume-tyrone-baker-0000000000000000" className="font-semibold text-ink-foreground underline">Resume the sample draft</a></p>
 
         <div className="mt-10 flex flex-wrap items-center gap-4">
           <button
