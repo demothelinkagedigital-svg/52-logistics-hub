@@ -70,3 +70,9 @@ This document records the work completed across the cleanup and content-update p
 - `supabase/migrations/20260808002657_5dc79762-a883-49d7-aade-0444132a46fb.sql`
 
 The migration files were edited as source files; no Supabase migration execution is recorded in this conversation.
+
+## 5. Recruiter applicant row navigation
+
+- Made each applicant row in the recruiter pipeline navigate to its application when clicked anywhere in the row; retained the applicant-name link.
+- Updated `src/routes/_authenticated/portal.recruiting.index.tsx`.
+- `npm run build` passed. Typecheck still reports the existing `src/routes/__root.tsx` error. The preview redirected to the demo sign-in page, so row interaction could not be tested in the browser.
