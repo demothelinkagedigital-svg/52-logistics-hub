@@ -590,7 +590,7 @@ function ApplicationPage() {
     return next;
   }
 
-  async function goTo(nextStep: number) {
+  function goTo(nextStep: number) {
     if (nextStep > step) {
       for (let current = step; current < nextStep; current += 1) {
         const nextErrors = validateStep(current);
@@ -602,7 +602,6 @@ function ApplicationPage() {
         }
       }
     }
-    if (editable && !(await persist(nextStep))) return;
     setErrors({});
     setStep(nextStep);
     window.scrollTo({ top: 0, behavior: "smooth" });
