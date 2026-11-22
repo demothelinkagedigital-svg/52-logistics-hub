@@ -179,6 +179,7 @@ function YesNo({
             type="button"
             disabled={disabled}
             aria-pressed={value === v}
+            aria-invalid={Boolean(error)}
             onClick={() => onChange(v)}
             className={`min-h-11 min-w-20 rounded-sm border px-4 py-2 text-sm font-semibold uppercase ${
               value === v
@@ -215,6 +216,7 @@ function CheckField({
           type="checkbox"
           checked={checked}
           disabled={disabled}
+          aria-invalid={Boolean(error)}
           onChange={(event) => onChange(event.target.checked)}
           className="mt-0.5 size-5 shrink-0 accent-primary"
         />
@@ -231,8 +233,13 @@ function displayDate(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
-export function ApplicationForm({ token, resumeLink }: { token: string; resumeLink?: string | undefined }) {
+export function ApplicationForm({ token }: { token: string }) {
   const queryClient = useQueryClient();
+  const [resumeLink, setResumeLink] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    setResumeLink(window.location.href);
+  }, [token]);
   const fetchApp = useServerFn(getApplicationByToken);
   const saveDraft = useServerFn(saveApplicationDraftByToken);
   const saveEmp = useServerFn(saveEmployersByToken);
@@ -244,6 +251,7 @@ export function ApplicationForm({ token, resumeLink }: { token: string; resumeLi
     queryKey: ["public-application", token],
     queryFn: () => fetchApp({ data: { token } }),
     retry: false,
+    staleTime: 30_000,
   });
   const { data: jobs = [] } = useQuery<PublicJob[]>({
     queryKey: PUBLIC_JOBS_KEY,
@@ -653,9 +661,16 @@ export function ApplicationForm({ token, resumeLink }: { token: string; resumeLi
   }
 
   async function handleSubmit() {
-    const nextErrors = validateStep(6);
+    const nextErrors = [1, 2, 3, 4, 5, 6].reduce<FormErrors>(
+      (all, stepToValidate) => ({ ...all, ...validateStep(stepToValidate) }),
+      {},
+    );
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
+      const firstInvalidStep = [1, 2, 3, 4, 5, 6].find((stepToValidate) =>
+        Object.keys(validateStep(stepToValidate)).length > 0,
+      );
+      if (firstInvalidStep) setStep(firstInvalidStep);
       return;
     }
     setBusy(true);
@@ -717,13 +732,8 @@ export function ApplicationForm({ token, resumeLink }: { token: string; resumeLi
         },
       });
       await saveEmp({ data: { token, employers } });
-      await submit({ data: { token, signature_name: signature.trim() } });
-      queryClient.setQueryData(["public-application", token], {
-        reference: app.reference_code,
-        position: selectedJob?.position ?? app.position_title,
-        submitted_at: new Date().toISOString(),
-        status: "submitted",
-      });
+      const result = await submit({ data: { token, signature_name: signature.trim() } });
+      queryClient.setQueryData(["public-application", token], result);
       toast.success("Application submitted for review");
     } catch (e) {
       toast.error("Could not submit your application. Please try again.");
@@ -755,7 +765,9 @@ export function ApplicationForm({ token, resumeLink }: { token: string; resumeLi
             <p>Selected position: {submitted.position ?? "—"}</p>
             <p>Submitted: {displayDate(submitted.submitted_at)}</p>
             <p className="leading-relaxed text-muted-foreground">
-              Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.
+              Recruiting will review your application. If you advance, 52 Logistics may start a
+              separate screening process through First Advantage, which will contact you directly.
+              Submitting does not guarantee employment or an interview.
             </p>
           </div>
         </Panel>
@@ -1096,6 +1108,7 @@ export function ApplicationForm({ token, resumeLink }: { token: string; resumeLi
                             className="mt-0.5 size-5 shrink-0 accent-primary"
                             checked={checked}
                             disabled={!editable}
+                            aria-invalid={Boolean(errors["schedule_availability"])}
                             onChange={(event) =>
                               set(
                                 "schedule_availability",

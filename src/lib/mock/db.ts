@@ -1048,12 +1048,13 @@ export function getDb(): Tables {
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
         for (const app of parsed["applications"] ?? []) {
           if (app["user_id"] === undefined) app["user_id"] = null;
-          if (app["resume_token_hash"] === undefined) {
-            const demoDraft = app["id"] === "a0000000-0000-4000-a000-000000000001" && app["status"] === "draft";
+          const demoDraft = app["id"] === "a0000000-0000-4000-a000-000000000001" && app["status"] === "draft";
+          if (app["resume_token_hash"] === undefined || (demoDraft && !app["resume_token_hash"])) {
             app["resume_token_hash"] = demoDraft ? fresh["applications"]![0]!["resume_token_hash"] : null;
+          }
+          if (app["resume_expires_at"] === undefined || (demoDraft && !app["resume_expires_at"])) {
             app["resume_expires_at"] = demoDraft ? fresh["applications"]![0]!["resume_expires_at"] : null;
           }
-          if (app["resume_expires_at"] === undefined) app["resume_expires_at"] = null;
           if (app["source"] === undefined) app["source"] = "web";
           if (app["last_saved_at"] === undefined) app["last_saved_at"] = app["updated_at"] ?? null;
         }

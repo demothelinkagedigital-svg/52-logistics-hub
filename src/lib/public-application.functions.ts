@@ -156,5 +156,11 @@ export const submitApplicationByToken = createServerFn({ method: "POST" })
       metadata: {}, created_at: submittedAt,
     });
     saved(application);
-    return { ok: true };
+    return {
+      ok: true,
+      reference: application["reference_code"],
+      position: application["position_title"],
+      submitted_at: submittedAt,
+      status: "submitted" as const,
+    };
   });

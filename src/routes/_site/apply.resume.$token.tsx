@@ -1,12 +1,22 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link, createFileRoute, useParams } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
-import { useServerFn } from "@/lib/mock/server-fn";
 import { getApplicationByToken } from "@/lib/public-application.functions";
-import { getSiteBootstrap } from "@/lib/public-content.functions";
 import { ApplicationForm } from "@/components/application/ApplicationForm";
+import { siteBootstrapQuery } from "../_site";
+import { getPublicJobs } from "@/lib/public-content.functions";
 
 export const Route = createFileRoute("/_site/apply/resume/$token")({
+  loader: async ({ params, context }) => {
+    const jobs = await getPublicJobs();
+    context.queryClient.setQueryData(["public-jobs"], jobs);
+    try {
+      const application = await getApplicationByToken({ data: { token: params.token } });
+      context.queryClient.setQueryData(["public-application", params.token], application);
+      return true;
+    } catch {
+      return false;
+    }
+  },
   head: () => ({ meta: [
     { title: "Resume Your Application | 52 Logistics" },
     { name: "robots", content: "noindex" },
@@ -17,19 +27,11 @@ export const Route = createFileRoute("/_site/apply/resume/$token")({
 
 function ResumeApplication() {
   const { token } = useParams({ from: "/_site/apply/resume/$token" });
-  const fetchApplication = useServerFn(getApplicationByToken);
-  const application = useQuery({
-    queryKey: ["public-application", token],
-    queryFn: () => fetchApplication({ data: { token } }),
-    retry: false,
-  });
-  const settings = useQuery({ queryKey: ["site-bootstrap"], queryFn: () => getSiteBootstrap() });
+  const validToken = Route.useLoaderData();
+  const { data: settings } = useSuspenseQuery(siteBootstrapQuery);
 
-  if (application.isPending || settings.isPending) {
-    return <div className="container-page flex min-h-[50vh] items-center justify-center"><Loader2 className="size-6 animate-spin" aria-label="Loading application" /></div>;
-  }
-  if (application.isError || !application.data) {
-    const email = settings.data?.settings["recruiting_email"];
+  if (!validToken) {
+    const email = settings.settings["recruiting_email"];
     return (
       <section className="container-page max-w-2xl py-20 lg:py-24">
         <p className="eyebrow text-accent">Application link unavailable</p>
@@ -43,5 +45,5 @@ function ResumeApplication() {
     );
   }
 
-  return <div className="container-page py-12 lg:py-16"><ApplicationForm token={token} resumeLink={typeof window !== "undefined" ? window.location.href : undefined} /></div>;
+  return <div className="container-page py-12 lg:py-16"><ApplicationForm token={token} /></div>;
 }
