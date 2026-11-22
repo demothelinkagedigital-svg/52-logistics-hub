@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
@@ -35,6 +35,7 @@ export const Route = createFileRoute("/_authenticated/portal/recruiting/")({
 });
 
 function RecruitingPage() {
+  const navigate = useNavigate();
   const { isRecruiter, isLoading: sessionLoading } = useSession();
   const fetchApps = useServerFn(listApplications);
   const fetchStats = useServerFn(getRecruitingStats);
@@ -141,12 +142,19 @@ function RecruitingPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {rows.map((a) => (
-                    <tr key={a.id} className="hover:bg-secondary/60">
+                    <tr
+                      key={a.id}
+                      className="cursor-pointer hover:bg-secondary/60"
+                      onClick={() =>
+                        void navigate({ to: "/portal/recruiting/$id", params: { id: a.id } })
+                      }
+                    >
                       <td className="py-3 pr-3">
                         <Link
                           to="/portal/recruiting/$id"
                           params={{ id: a.id }}
                           className="font-semibold underline-offset-4 hover:underline"
+                          onClick={(event) => event.stopPropagation()}
                         >
                           {fullName(a)}
                         </Link>

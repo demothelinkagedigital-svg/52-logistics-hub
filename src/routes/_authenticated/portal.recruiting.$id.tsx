@@ -42,6 +42,24 @@ export const Route = createFileRoute("/_authenticated/portal/recruiting/$id")({
   component: ApplicantDetail,
 });
 
+function displayValue(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.map(displayValue).filter(Boolean).join(", ") || null;
+  return String(value);
+}
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  submitted: "Application submitted",
+  status_change: "Status changed",
+  corrections_requested: "Corrections requested",
+  document_approved: "Document approved",
+  document_rejected: "Document rejected",
+  document_pending: "Document pending",
+  screening_update: "Screening updated",
+  esign_update: "Electronic signature updated",
+};
+
 function ApplicantDetail() {
   const { id } = Route.useParams();
   const { isRecruiter, isLoading: sessionLoading } = useSession();
@@ -105,20 +123,74 @@ function ApplicantDetail() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          {a.qualification_gap ? (
+            <Panel title="Qualification review flag">
+              <p className="text-sm font-medium">
+                This application has one or more qualification gaps for human review.
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {(a.qualification_gap_reasons ?? []).map((reason: string) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            </Panel>
+          ) : null}
           <Panel title="Applicant information">
             <dl className="grid gap-4 sm:grid-cols-3">
+              <Field label="Preferred name" value={displayValue(a.preferred_name)} />
               <Field label="Email" value={a.email} />
               <Field label="Phone" value={a.phone} />
-              <Field label="Date of birth" value={a.date_of_birth} />
-              <Field label="Address" value={[a.address_line1, a.city, a.state, a.postal_code].filter(Boolean).join(", ")} />
-              <Field label="CDL" value={`${a.cdl_class ?? ""} ${a.cdl_number ?? ""} ${a.cdl_state ?? ""}`.trim()} />
-              <Field label="CDL expires" value={a.cdl_expiration_date} />
-              <Field label="Experience" value={a.years_experience != null ? `${a.years_experience} yrs` : null} />
-              <Field label="Endorsements" value={(a.endorsements ?? []).join(", ")} />
-              <Field label="Medical card" value={a.medical_card_expiration} />
-              <Field label="Accidents (3 yrs)" value={a.accidents_last_3_years} />
-              <Field label="Violations (3 yrs)" value={a.violations_last_3_years} />
-              <Field label="Notes from applicant" value={a.additional_notes} />
+              <Field
+                label="Preferred contact method"
+                value={displayValue(a.preferred_contact_method)}
+              />
+              <Field
+                label="Location"
+                value={[a.city, a.state, a.postal_code].filter(Boolean).join(", ")}
+              />
+              <Field label="18 or older" value={displayValue(a.is_18_or_older)} />
+              <Field label="Authorized to work" value={displayValue(a.authorized_to_work)} />
+              <Field label="CDL status" value={displayValue(a.cdl_status)} />
+              <Field label="CDL class" value={displayValue(a.cdl_class)} />
+              <Field label="CDL state" value={displayValue(a.cdl_state)} />
+              <Field label="Endorsements" value={displayValue(a.endorsements)} />
+              <Field
+                label="Commercial driving experience (years)"
+                value={displayValue(a.commercial_experience_years)}
+              />
+              <Field
+                label="Tractor-trailer experience"
+                value={displayValue(a.tractor_trailer_experience)}
+              />
+              <Field
+                label="Linehaul / P&D experience"
+                value={displayValue(a.linehaul_pd_experience)}
+              />
+              <Field label="Schedule availability" value={displayValue(a.schedule_availability)} />
+              <Field label="Start availability" value={displayValue(a.start_availability)} />
+              <Field
+                label="Can perform duties with or without accommodation"
+                value={displayValue(a.can_perform_duties_with_or_without_accommodation)}
+              />
+              <Field label="Medical card status" value={displayValue(a.medical_card_status)} />
+              <Field
+                label="Medical card expiration month"
+                value={displayValue(a.medical_card_expiration_month)}
+              />
+              <Field
+                label="Medical card expiration year"
+                value={displayValue(a.medical_card_expiration_year)}
+              />
+              <Field label="Agrees to comply" value={displayValue(a.agrees_to_comply)} />
+              <Field
+                label="Consents to electronic records"
+                value={displayValue(a.consent_electronic_records)}
+              />
+              <Field label="Signature signed at" value={displayValue(a.signature_signed_at)} />
+              <Field label="Signature name" value={displayValue(a.signature_name)} />
+              <Field label="Certified" value={displayValue(a.certified)} />
+              <Field label="How did you hear about us" value={displayValue(a.how_did_you_hear)} />
+              <Field label="Notes from applicant" value={displayValue(a.additional_notes)} />
             </dl>
           </Panel>
 
@@ -133,13 +205,31 @@ function ApplicantDetail() {
                       {e.employer_name} {e.was_dot_regulated ? "· DOT" : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {[e.position_held, e.city, e.state, `${e.start_date ?? "?"} – ${e.end_date ?? "present"}`]
+                      {[
+                        e.position_held,
+                        e.city,
+                        e.state,
+                        `${e.start_date ?? "?"} – ${e.end_date ?? "present"}`,
+                      ]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
                     {e.reason_for_leaving ? (
-                      <p className="mt-1 text-xs text-muted-foreground">Left: {e.reason_for_leaving}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Left: {e.reason_for_leaving}
+                      </p>
                     ) : null}
+                    <dl className="mt-2 grid gap-2 sm:grid-cols-3">
+                      <Field label="Current employer" value={displayValue(e.current_employer)} />
+                      <Field
+                        label="Commercial driving relevant"
+                        value={displayValue(e.commercial_driving_relevant)}
+                      />
+                      <Field
+                        label="Permission to contact"
+                        value={displayValue(e.permission_to_contact)}
+                      />
+                    </dl>
                   </li>
                 ))}
               </ul>
@@ -147,61 +237,70 @@ function ApplicantDetail() {
           </Panel>
 
           <Panel title="Documents">
-            {!data.documents.length ? (
-              <EmptyState title="No documents uploaded" />
+            {!data.documents.some(
+              (d) => d.doc_type === "medical_card" || d.doc_type === "resume",
+            ) ? (
+              <EmptyState title="No supported documents uploaded" />
             ) : (
               <ul className="divide-y divide-border">
-                {data.documents.map((d) => (
-                  <li key={d.id} className="flex flex-wrap items-center gap-3 py-3">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const { url } = await openDoc({ data: { id: d.id } });
-                          window.open(url, "_blank", "noopener,noreferrer");
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : "Could not open");
+                {data.documents
+                  .filter((d) => d.doc_type === "medical_card" || d.doc_type === "resume")
+                  .map((d) => (
+                    <li key={d.id} className="flex flex-wrap items-center gap-3 py-3">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const { url } = await openDoc({ data: { id: d.id } });
+                            window.open(url, "_blank", "noopener,noreferrer");
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Could not open");
+                          }
+                        }}
+                        className="min-w-0 flex-1 truncate text-left text-sm font-medium underline-offset-4 hover:underline"
+                      >
+                        {d.doc_type === "medical_card" ? "Medical card document" : "Resume"}
+                      </button>
+                      <StatusBadge status={d.verification_status} />
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(
+                            () => verify({ data: { id: d.id, verification_status: "approved" } }),
+                            "Document approved",
+                          )
                         }
-                      }}
-                      className="min-w-0 flex-1 truncate text-left text-sm font-medium underline-offset-4 hover:underline"
-                    >
-                      {d.file_name}
-                      <span className="ml-2 text-xs text-muted-foreground">{d.doc_type}</span>
-                    </button>
-                    <StatusBadge status={d.verification_status} />
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(
-                          () => verify({ data: { id: d.id, verification_status: "approved" } }),
-                          "Document approved",
-                        )
-                      }
-                      className="rounded-sm border border-input px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        const reason = window.prompt("Reason for rejection (shown to applicant):");
-                        if (!reason) return;
-                        void run(
-                          () =>
-                            verify({
-                              data: { id: d.id, verification_status: "rejected", rejection_reason: reason },
-                            }),
-                          "Document rejected",
-                        );
-                      }}
-                      className="rounded-sm border border-destructive/40 px-2.5 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/5"
-                    >
-                      Reject
-                    </button>
-                  </li>
-                ))}
+                        className="rounded-sm border border-input px-2.5 py-1.5 text-xs font-semibold hover:bg-secondary"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          const reason = window.prompt(
+                            "Reason for rejection (shown to applicant):",
+                          );
+                          if (!reason) return;
+                          void run(
+                            () =>
+                              verify({
+                                data: {
+                                  id: d.id,
+                                  verification_status: "rejected",
+                                  rejection_reason: reason,
+                                },
+                              }),
+                            "Document rejected",
+                          );
+                        }}
+                        className="rounded-sm border border-destructive/40 px-2.5 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/5"
+                      >
+                        Reject
+                      </button>
+                    </li>
+                  ))}
               </ul>
             )}
           </Panel>
@@ -210,8 +309,7 @@ function ApplicantDetail() {
             <Timeline
               items={data.events.map((e) => ({
                 id: e.id,
-                title: String(e.event_type).replace(/_/g, " "),
-                description: e.description,
+                title: ACTIVITY_LABELS[e.event_type] ?? "Application activity",
                 at: e.created_at,
               }))}
             />
