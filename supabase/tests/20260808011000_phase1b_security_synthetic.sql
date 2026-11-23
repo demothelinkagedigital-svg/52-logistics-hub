@@ -177,7 +177,7 @@ BEGIN
   IF public.submit_application_draft('phase1b-valid-token-a-0123456789abcdef','') IS NOT NULL THEN
     RAISE EXCEPTION 'submission accepted a blank signature';
   END IF;
-  IF public.submit_application_draft('phase1b-valid-token-a-0123456789abcdef','Applicant Alpha') IS NULL THEN
+  IF public.submit_application_draft('phase1b-valid-token-a-0123456789abcdef','Updated Alpha') IS NULL THEN
     RAISE EXCEPTION 'valid draft could not be submitted';
   END IF;
   IF public.resume_application('phase1b-valid-token-a-0123456789abcdef') IS NOT NULL THEN

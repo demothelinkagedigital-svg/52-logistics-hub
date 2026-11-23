@@ -1277,7 +1277,7 @@ BEGIN
     AND a.resume_consumed_at IS NULL AND a.status = 'draft'::public.application_status
   FOR UPDATE;
   IF NOT FOUND OR app.job_id IS NULL OR app.first_name IS NULL OR app.last_name IS NULL
-     OR app.email IS NULL OR app.email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$'
+     OR app.email IS NULL OR app.email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+[.][A-Z]{2,}$'
      OR app.phone IS NULL OR app.city IS NULL OR app.state IS NULL OR app.postal_code IS NULL
      OR app.is_18_or_older IS DISTINCT FROM true OR app.authorized_to_work IS NULL
      OR app.cdl_status IS NULL OR app.cdl_class IS NULL OR app.cdl_state IS NULL
@@ -1384,7 +1384,14 @@ BEGIN
       'consent_electronic_records',NEW.consent_electronic_records,'signature_name',NEW.signature_name,
       'certified',NEW.certified,'signature_signed_at',NEW.signature_signed_at,
       'how_did_you_hear',NEW.how_did_you_hear,'qualification_gap',NEW.qualification_gap,
-      'qualification_gap_reasons',NEW.qualification_gap_reasons);
+      'qualification_gap_reasons',NEW.qualification_gap_reasons,
+      'employers',coalesce((SELECT jsonb_agg(jsonb_build_object(
+        'employer_name',e.employer_name,'position_held',e.position_held,'city',e.city,
+        'state',e.state,'phone',e.phone,'start_date',e.start_date,'end_date',e.end_date,
+        'reason_for_leaving',e.reason_for_leaving,'was_dot_regulated',e.was_dot_regulated,
+        'current_employer',e.current_employer,'commercial_driving_relevant',e.commercial_driving_relevant,
+        'permission_to_contact',e.permission_to_contact,'equipment_operated',e.equipment_operated
+      ) ORDER BY e.sort_order) FROM public.application_employers e WHERE e.application_id=NEW.id),'[]'::jsonb));
     IF current_response IS DISTINCT FROM OLD.submitted_response_snapshot
        OR NEW.submitted_response_snapshot IS DISTINCT FROM OLD.submitted_response_snapshot THEN
       RAISE EXCEPTION 'submitted application responses are immutable';
