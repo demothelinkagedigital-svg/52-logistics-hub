@@ -47,12 +47,14 @@ ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO public.applications
  (id,user_id,job_id,status,first_name,last_name,email,date_of_birth,cdl_number,
-  medical_card_expiration,suspension_details,drug_test_details,resume_token_hash,
+  medical_card_expiration,suspension_details,drug_test_details,is_18_or_older,cdl_status,
+  preferred_contact_method,authorized_to_work,consent_electronic_records,resume_token_hash,
   resume_expires_at,resume_revoked_at,resume_consumed_at)
 SELECT '11111111-1111-4111-8111-111111111111','a1111111-1111-4111-8111-111111111111',
        j.id,'draft','Applicant','Alpha','phase1b-app-a@example.invalid','1980-01-02',
        'SYNTHETIC-CDL-A','2028-01-01','Synthetic legacy suspension detail',
-       'Synthetic legacy test detail',encode(extensions.digest(convert_to('phase1b-valid-token-a-0123456789abcdef','UTF8'),'sha256'),'hex'),
+       'Synthetic legacy test detail',true,'valid_cdl','email',true,true,
+       encode(extensions.digest(convert_to('phase1b-valid-token-a-0123456789abcdef','UTF8'),'sha256'),'hex'),
        now()+interval '1 day',NULL,NULL
 FROM public.jobs j WHERE j.slug='phase1b-synthetic';
 INSERT INTO public.applications
@@ -84,7 +86,8 @@ VALUES
   'resume','synthetic/app-b/resume.pdf','synthetic-resume.pdf','application/pdf',128);
 
 INSERT INTO public.drivers(user_id,status)
-VALUES ('e5555555-5555-4555-8555-555555555555','active');
+VALUES ('e5555555-5555-4555-8555-555555555555','active'),
+       ('b2222222-2222-4222-8222-222222222222','active');
 
 -- Anonymous and authenticated applicant direct access to protected application
 -- rows must fail due to revoked privileges, regardless of forged application ID.
@@ -115,20 +118,27 @@ BEGIN
       WHERE application_id='22222222-2222-4222-8222-222222222222') <> 0 THEN
     RAISE EXCEPTION 'applicant A read applicant B document metadata';
   END IF;
+  IF has_table_privilege('authenticated','public.application_events','INSERT')
+     OR has_table_privilege('authenticated','public.application_documents','INSERT')
+     OR (SELECT count(*) FROM public.application_notes) <> 0 THEN
+    RAISE EXCEPTION 'applicant has direct event, note, or document table access';
+  END IF;
+  BEGIN
+    UPDATE public.applications SET recruiting_status='hired'
+    WHERE id='11111111-1111-4111-8111-111111111111';
+    RAISE EXCEPTION 'applicant directly changed internal status';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
   IF public.has_role('c3333333-3333-4333-8333-333333333333','recruiter'::public.app_role) THEN
     RAISE EXCEPTION 'role helper disclosed another user role';
   END IF;
   payload := public.resume_application('phase1b-valid-token-a-0123456789abcdef');
-  IF payload->>'id' <> '11111111-1111-4111-8111-111111111111' THEN
-    RAISE EXCEPTION 'applicant A token did not resume the matching application';
+  IF payload->>'reference_code' IS NULL OR payload ? 'id' THEN
+    RAISE EXCEPTION 'resume response exposed an application identifier or omitted its reference';
   END IF;
   IF payload ?| ARRAY['date_of_birth','cdl_number','medical_card_expiration',
                        'suspension_details','drug_test_details','resume_token_hash'] THEN
     RAISE EXCEPTION 'resume RPC leaked a legacy sensitive/internal field';
-  END IF;
-  IF public.resume_application('phase1b-valid-token-b-0123456789abcdef')->>'id'
-       <> '22222222-2222-4222-8222-222222222222' THEN
-    RAISE EXCEPTION 'B token did not resolve exclusively to application B';
   END IF;
   IF public.resume_application('phase1b-expired-token-0123456789abcdef') IS NOT NULL
      OR public.resume_application('phase1b-revoked-token-0123456789abcdef') IS NOT NULL
@@ -142,10 +152,13 @@ BEGIN
   END IF;
   IF NOT public.save_application_draft(
        'phase1b-valid-token-a-0123456789abcdef',
-       '{"first_name":"Updated Alpha","current_step":2}'::jsonb) THEN
+       '{"first_name":"Updated Alpha","current_step":2,"preferred_name":"Al","medical_card_status":"current"}'::jsonb) THEN
     RAISE EXCEPTION 'draft save rejected allowlisted changes';
   END IF;
-  IF NOT public.submit_application_draft('phase1b-valid-token-a-0123456789abcdef') THEN
+  IF public.submit_application_draft('phase1b-valid-token-a-0123456789abcdef','') IS NOT NULL THEN
+    RAISE EXCEPTION 'submission accepted a blank signature';
+  END IF;
+  IF public.submit_application_draft('phase1b-valid-token-a-0123456789abcdef','Applicant Alpha') IS NULL THEN
     RAISE EXCEPTION 'valid draft could not be submitted';
   END IF;
   IF public.resume_application('phase1b-valid-token-a-0123456789abcdef') IS NOT NULL THEN
@@ -168,9 +181,8 @@ BEGIN
   IF (SELECT count(id) FROM public.applications) <> 0 THEN
     RAISE EXCEPTION 'applicant B read application rows directly';
   END IF;
-  IF public.resume_application('phase1b-valid-token-b-0123456789abcdef')->>'id'
-       <> '22222222-2222-4222-8222-222222222222' THEN
-    RAISE EXCEPTION 'applicant B token returned a cross-application record';
+  IF public.resume_application('phase1b-valid-token-b-0123456789abcdef')->>'reference_code' IS NULL THEN
+    RAISE EXCEPTION 'applicant B could not resume their own application';
   END IF;
 END;
 $applicant_b_checks$;
