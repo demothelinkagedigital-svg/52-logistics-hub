@@ -104,8 +104,8 @@ GRANT EXECUTE ON FUNCTION public.is_staff(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.is_recruiting_staff(uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.is_content_staff(uuid) TO authenticated, service_role;
 
--- Temporary developer grants fail closed; no policy below consumes this table.
--- A separate reviewed workflow must grant/revoke access with an audit record.
+-- Temporary developer grants are scoped to read-only public-content inspection; the
+-- grant/revoke functions record an audit event and enforce a one-day maximum.
 CREATE TABLE IF NOT EXISTS public.temporary_developer_grants (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -302,7 +302,7 @@ BEGIN
       ])
   LOOP
     EXECUTE format(
-      'REVOKE ALL (%I) ON TABLE public.%I FROM PUBLIC, anon, authenticated',
+      'REVOKE SELECT (%1$I), INSERT (%1$I), UPDATE (%1$I), REFERENCES (%1$I) ON TABLE public.%2$I FROM PUBLIC, anon, authenticated',
       c.column_name, c.table_name
     );
   END LOOP;
@@ -333,18 +333,27 @@ CREATE OR REPLACE FUNCTION public.update_application_recruiting_status(
   _application_id uuid, _next_status text
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
-DECLARE current_status text;
+DECLARE current_status text; application_state public.application_status;
 BEGIN
-  IF NOT public.is_recruiting_staff(auth.uid()) OR _next_status NOT IN (
+  IF NOT public.is_recruiting_staff(auth.uid()) OR _next_status IS NULL OR _next_status NOT IN (
     'new','incomplete','ready_for_review','ready_to_invite_first_advantage',
     'first_advantage_invitation_sent','candidate_completing_first_advantage',
     'screening_complete_management_review','hired','rejected','archived'
   ) THEN
     RETURN false;
   END IF;
-  SELECT recruiting_status INTO current_status
+  SELECT recruiting_status,status INTO current_status,application_state
   FROM public.applications WHERE id = _application_id FOR UPDATE;
-  IF NOT FOUND THEN RETURN false; END IF;
+  IF NOT FOUND OR application_state <> 'submitted'::public.application_status THEN RETURN false; END IF;
+  IF _next_status IN ('first_advantage_invitation_sent','candidate_completing_first_advantage')
+     AND NOT EXISTS (
+       SELECT 1 FROM public.fadv_handoffs h
+       JOIN public.applications a ON a.id = h.application_id
+       WHERE a.id = _application_id AND h.invitation_date IS NOT NULL
+         AND h.recruiter_id IS NOT NULL
+     ) THEN
+    RETURN false;
+  END IF;
   IF NOT (
     (current_status IS NULL AND _next_status IN ('new','incomplete','ready_for_review')) OR
     (current_status = 'new' AND _next_status IN ('incomplete','ready_for_review','archived')) OR
@@ -377,12 +386,6 @@ GRANT SELECT (id,application_id,doc_type,file_name,mime_type,size_bytes,created_
   ON public.application_documents TO authenticated;
 CREATE POLICY documents_recruiter_read ON public.application_documents
   FOR SELECT TO authenticated USING (public.is_recruiting_staff(auth.uid()));
-
-ALTER TABLE public.application_documents
-  ADD CONSTRAINT application_documents_approved_type_check
-    CHECK (doc_type IN ('medical_card','resume')) NOT VALID,
-  ADD CONSTRAINT application_documents_size_check
-    CHECK (size_bytes IS NULL OR size_bytes BETWEEN 1 AND 10485760) NOT VALID;
 
 CREATE OR REPLACE FUNCTION public.verify_application_document(
   _document_id uuid, _status text, _rejection_reason text DEFAULT NULL
@@ -587,14 +590,17 @@ GRANT SELECT ON public.drivers TO authenticated;
 GRANT UPDATE (emergency_contact_name,emergency_contact_phone) ON public.drivers TO authenticated;
 CREATE POLICY drivers_self_read ON public.drivers
   FOR SELECT TO authenticated USING (
-    user_id = auth.uid() AND public.has_role(auth.uid(),'driver'::public.app_role)
+    user_id = auth.uid() AND status = 'active'
+    AND public.has_role(auth.uid(),'driver'::public.app_role)
   );
 CREATE POLICY drivers_admin_read ON public.drivers
   FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'administrator'::public.app_role));
 CREATE POLICY drivers_self_update ON public.drivers
   FOR UPDATE TO authenticated
-  USING (user_id = auth.uid() AND public.has_role(auth.uid(),'driver'::public.app_role))
-  WITH CHECK (user_id = auth.uid() AND public.has_role(auth.uid(),'driver'::public.app_role));
+  USING (user_id = auth.uid() AND status = 'active'
+    AND public.has_role(auth.uid(),'driver'::public.app_role))
+  WITH CHECK (user_id = auth.uid() AND status = 'active'
+    AND public.has_role(auth.uid(),'driver'::public.app_role));
 
 -- Notifications are own-read and own read-state only. No caller-supplied
 -- recipient function, direct insert/delete, or arbitrary body update.
@@ -646,13 +652,7 @@ CREATE OR REPLACE FUNCTION public.on_application_status_change()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp AS $$
 BEGIN
-  IF NEW.status IS DISTINCT FROM OLD.status THEN
-    IF NEW.status = 'submitted'::public.application_status THEN
-      PERFORM public.notify_recruiting_staff(
-        'application_submitted','New 52 Logistics application',
-        'Reference: ' || NEW.reference_code || '; position: ' || coalesce(NEW.position_title,'Selected opening'),
-        '/portal/recruiting/' || NEW.id::text);
-    END IF;
+  IF NEW.status IS DISTINCT FROM OLD.status AND NEW.user_id IS NOT NULL THEN
     PERFORM public.notify_user(
       NEW.user_id,'application_status','Your 52 Logistics application was updated',
       'Reference: ' || NEW.reference_code || '; status: ' || NEW.status::text,
@@ -691,7 +691,7 @@ REVOKE ALL ON public.jobs, public.page_content, public.faqs, public.site_setting
 GRANT SELECT ON public.jobs, public.page_content, public.faqs TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.jobs, public.page_content, public.faqs TO authenticated;
 CREATE POLICY jobs_public_read ON public.jobs FOR SELECT TO anon, authenticated
-  USING (published AND archived_at IS NULL);
+  USING (published AND status = 'open' AND archived_at IS NULL);
 CREATE POLICY jobs_content_manage ON public.jobs FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY page_content_public_read ON public.page_content FOR SELECT TO anon, authenticated
@@ -699,10 +699,8 @@ CREATE POLICY page_content_public_read ON public.page_content FOR SELECT TO anon
 CREATE POLICY page_content_content_manage ON public.page_content FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY page_content_temp_developer_read ON public.page_content FOR SELECT TO authenticated
-  USING (public.has_temporary_developer_scope(auth.uid(),'public_content'));
-CREATE POLICY page_content_temp_developer_update ON public.page_content FOR UPDATE TO authenticated
-  USING (public.has_temporary_developer_scope(auth.uid(),'public_content'))
-  WITH CHECK (public.has_temporary_developer_scope(auth.uid(),'public_content'));
+  USING (published AND approval_status = 'approved'
+    AND public.has_temporary_developer_scope(auth.uid(),'public_content'));
 CREATE POLICY faqs_public_read ON public.faqs FOR SELECT TO anon, authenticated USING (published);
 CREATE POLICY faqs_content_manage ON public.faqs FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
@@ -734,8 +732,6 @@ GRANT SELECT ON public.academy_modules, public.handbook_sections, public.safety_
 GRANT SELECT (id,version_label,title,description,effective_date,requires_signature,
               published,archived_at,created_at,updated_at)
   ON public.handbook_versions TO authenticated;
-GRANT SELECT (document_url,storage_path,created_by)
-  ON public.handbook_versions TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.academy_modules, public.handbook_sections,
   public.safety_resources, public.announcements, public.safety_meetings,
   public.handbook_versions, public.required_systems, public.media_assets TO authenticated;
@@ -748,17 +744,17 @@ GRANT SELECT ON public.media_assets TO authenticated;
 
 CREATE POLICY academy_driver_read ON public.academy_modules FOR SELECT TO authenticated
   USING (published AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY academy_content_manage ON public.academy_modules FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY handbook_driver_read ON public.handbook_sections FOR SELECT TO authenticated
   USING (published AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY handbook_content_manage ON public.handbook_sections FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY safety_driver_read ON public.safety_resources FOR SELECT TO authenticated
   USING (published AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY safety_content_manage ON public.safety_resources FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY announcements_driver_read ON public.announcements FOR SELECT TO authenticated
@@ -767,30 +763,28 @@ CREATE POLICY announcements_driver_read ON public.announcements FOR SELECT TO au
     AND (expires_at IS NULL OR expires_at > now())
     AND audience IN ('driver','drivers','all_drivers')
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY announcements_content_manage ON public.announcements FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY meetings_driver_read ON public.safety_meetings FOR SELECT TO authenticated
   USING (status = 'published' AND audience IN ('driver','drivers','all_drivers')
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid())
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
     AND EXISTS (SELECT 1 FROM public.safety_meeting_assignments ma
                 WHERE ma.meeting_id = safety_meetings.id AND ma.user_id = auth.uid()));
 CREATE POLICY meetings_content_manage ON public.safety_meetings FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY handbook_versions_driver_read ON public.handbook_versions FOR SELECT TO authenticated
   USING (published AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY handbook_versions_content_manage ON public.handbook_versions FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
-REVOKE SELECT (document_url,storage_path,created_by) ON public.handbook_versions FROM authenticated;
-GRANT SELECT (document_url,storage_path,created_by) ON public.handbook_versions TO authenticated;
 CREATE POLICY handbook_versions_path_content_only ON public.handbook_versions
   FOR SELECT TO authenticated USING (public.is_content_staff(auth.uid()));
 CREATE POLICY required_systems_driver_read ON public.required_systems FOR SELECT TO authenticated
   USING (published AND audience = 'drivers'
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY required_systems_content_manage ON public.required_systems FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY media_content_read ON public.media_assets FOR SELECT TO authenticated
@@ -807,7 +801,7 @@ CREATE POLICY announcement_ack_self_insert ON public.announcement_acknowledgemen
   FOR INSERT TO authenticated WITH CHECK (
     user_id = auth.uid()
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid())
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
     AND EXISTS (SELECT 1 FROM public.announcements a
       WHERE a.id = announcement_id AND a.published AND a.status = 'published'
         AND (a.publish_at IS NULL OR a.publish_at <= now())
@@ -820,7 +814,7 @@ CREATE POLICY safety_ack_self_insert ON public.safety_acknowledgements
   FOR INSERT TO authenticated WITH CHECK (
     user_id = auth.uid()
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid())
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
     AND EXISTS (SELECT 1 FROM public.safety_resources r
       WHERE r.id = resource_id AND r.published)
   );
@@ -830,7 +824,7 @@ CREATE POLICY handbook_signatures_self_insert ON public.handbook_signatures
   FOR INSERT TO authenticated WITH CHECK (
     user_id = auth.uid()
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid())
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
     AND EXISTS (SELECT 1 FROM public.handbook_versions h
       WHERE h.id = version_id AND h.published AND h.requires_signature)
   );
@@ -857,28 +851,28 @@ GRANT SELECT ON public.lms_enrollments, public.lms_lesson_progress,
 CREATE POLICY lms_courses_driver_read ON public.lms_courses FOR SELECT TO authenticated
   USING (published AND archived_at IS NULL
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY lms_courses_content_manage ON public.lms_courses FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY lms_modules_driver_read ON public.lms_modules FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(),'driver'::public.app_role)
     AND EXISTS (SELECT 1 FROM public.lms_courses c
       WHERE c.id = course_id AND c.published AND c.archived_at IS NULL)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY lms_modules_content_only ON public.lms_modules FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY lms_lessons_driver_read ON public.lms_lessons FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(),'driver'::public.app_role)
     AND EXISTS (SELECT 1 FROM public.lms_courses c
       WHERE c.id = course_id AND c.published AND c.archived_at IS NULL)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY lms_lessons_content_only ON public.lms_lessons FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY lms_quizzes_driver_read ON public.lms_quizzes FOR SELECT TO authenticated
   USING (public.has_role(auth.uid(),'driver'::public.app_role)
     AND EXISTS (SELECT 1 FROM public.lms_courses c
       WHERE c.id = course_id AND c.published AND c.archived_at IS NULL)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid()));
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active'));
 CREATE POLICY lms_quizzes_content_only ON public.lms_quizzes FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 CREATE POLICY lms_questions_content_only ON public.lms_quiz_questions FOR ALL TO authenticated
@@ -892,19 +886,19 @@ CREATE POLICY lms_enrollments_self_read ON public.lms_enrollments
   FOR SELECT TO authenticated USING (
     user_id = auth.uid()
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid())
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
   );
 CREATE POLICY lms_progress_self_read ON public.lms_lesson_progress
   FOR SELECT TO authenticated USING (
     user_id = auth.uid()
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid())
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
   );
 CREATE POLICY lms_attempts_self_read ON public.lms_quiz_attempts
   FOR SELECT TO authenticated USING (
     user_id = auth.uid()
     AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid())
+    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
   );
 
 -- Token-only applicant APIs. The database issues high-entropy tokens and stores
@@ -1230,9 +1224,41 @@ BEGIN
     AND resume_consumed_at IS NULL AND status = 'draft'::public.application_status
   FOR UPDATE;
   IF app_id IS NULL THEN RETURN NULL; END IF;
-  DELETE FROM public.application_documents WHERE id = _document_id AND application_id = app_id
-  RETURNING storage_path INTO object_path;
+  SELECT storage_path INTO object_path FROM public.application_documents
+  WHERE id = _document_id AND application_id = app_id;
   RETURN object_path;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.complete_application_document_deletion(
+  _token text,_document_id uuid
+) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, extensions, pg_temp AS $$
+DECLARE app_id uuid;
+BEGIN
+  IF _token IS NULL OR length(_token) < 32 OR length(_token) > 512 THEN RETURN false; END IF;
+  SELECT id INTO app_id FROM public.applications
+  WHERE resume_token_hash = encode(extensions.digest(convert_to(_token,'UTF8'),'sha256'),'hex')
+    AND resume_expires_at > now() AND resume_revoked_at IS NULL
+    AND resume_consumed_at IS NULL AND status = 'draft'::public.application_status
+  FOR UPDATE;
+  IF app_id IS NULL THEN RETURN false; END IF;
+  DELETE FROM public.application_documents WHERE id = _document_id AND application_id = app_id;
+  RETURN FOUND;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.revoke_application_resume_token(_token text)
+RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, extensions, pg_temp AS $$
+BEGIN
+  IF _token IS NULL OR length(_token) < 32 OR length(_token) > 512 THEN RETURN false; END IF;
+  UPDATE public.applications
+  SET resume_revoked_at = now(), updated_at = now()
+  WHERE resume_token_hash = encode(extensions.digest(convert_to(_token,'UTF8'),'sha256'),'hex')
+    AND resume_expires_at > now() AND resume_revoked_at IS NULL
+    AND resume_consumed_at IS NULL AND status = 'draft'::public.application_status;
+  RETURN FOUND;
 END;
 $$;
 
@@ -1251,9 +1277,28 @@ BEGIN
     AND a.resume_consumed_at IS NULL AND a.status = 'draft'::public.application_status
   FOR UPDATE;
   IF NOT FOUND OR app.job_id IS NULL OR app.first_name IS NULL OR app.last_name IS NULL
-     OR app.email IS NULL OR app.is_18_or_older IS DISTINCT FROM true
-     OR app.authorized_to_work IS NULL OR app.cdl_status IS NULL
-     OR app.preferred_contact_method IS NULL OR app.consent_electronic_records IS DISTINCT FROM true THEN
+     OR app.email IS NULL OR app.email !~* '^[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}$'
+     OR app.phone IS NULL OR app.city IS NULL OR app.state IS NULL OR app.postal_code IS NULL
+     OR app.is_18_or_older IS DISTINCT FROM true OR app.authorized_to_work IS NULL
+     OR app.cdl_status IS NULL OR app.cdl_class IS NULL OR app.cdl_state IS NULL
+     OR app.commercial_experience_years IS NULL OR app.tractor_trailer_experience IS NULL
+     OR app.linehaul_pd_experience IS NULL OR cardinality(app.schedule_availability) = 0
+     OR app.start_availability IS NULL
+     OR app.can_perform_duties_with_or_without_accommodation IS NULL
+     OR app.medical_card_status IS NULL
+     OR (app.medical_card_status = 'current' AND
+         (app.medical_card_expiration_month IS NULL OR app.medical_card_expiration_year IS NULL))
+     OR app.agrees_to_comply IS DISTINCT FROM true
+     OR app.preferred_contact_method IS NULL OR app.consent_electronic_records IS DISTINCT FROM true
+     OR lower(btrim(_signature_name)) NOT IN (
+       lower(btrim(concat_ws(' ',app.first_name,app.last_name))),
+       lower(btrim(concat_ws(' ',app.first_name,app.middle_name,app.last_name)))
+     )
+     OR NOT EXISTS (SELECT 1 FROM public.application_employers e
+       WHERE e.application_id=app.id AND e.employer_name IS NOT NULL
+         AND e.position_held IS NOT NULL AND e.start_date IS NOT NULL
+         AND e.current_employer IS NOT NULL AND e.commercial_driving_relevant IS NOT NULL
+         AND e.permission_to_contact IS NOT NULL AND e.reason_for_leaving IS NOT NULL) THEN
     RETURN NULL;
   END IF;
   UPDATE public.applications a
@@ -1298,7 +1343,10 @@ REVOKE ALL ON FUNCTION public.save_application_employers(text,jsonb) FROM PUBLIC
 REVOKE ALL ON FUNCTION public.create_application_upload_target(text,text,text,text,bigint) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.record_application_document(text,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.delete_application_document(text,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.complete_application_document_deletion(text,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.revoke_application_resume_token(text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.submit_application_draft(text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.revoke_application_resume_token(text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.start_public_application(uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.resume_application(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.save_application_draft(text,jsonb) TO anon, authenticated;
@@ -1306,6 +1354,7 @@ GRANT EXECUTE ON FUNCTION public.save_application_employers(text,jsonb) TO anon,
 GRANT EXECUTE ON FUNCTION public.create_application_upload_target(text,text,text,text,bigint) TO service_role;
 GRANT EXECUTE ON FUNCTION public.record_application_document(text,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.delete_application_document(text,uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.complete_application_document_deletion(text,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.submit_application_draft(text,text) TO anon, authenticated;
 
 -- Submitted response snapshot is immutable. Workflow-only fields remain
@@ -1390,12 +1439,6 @@ BEGIN
     INSERT INTO public.security_audit_events(actor_id,action,target_type,target_id,old_status,new_status)
       VALUES (auth.uid(),'recruiting_status_changed','application',NEW.id::text,
               OLD.recruiting_status,NEW.recruiting_status);
-    IF NEW.recruiting_status = 'new' THEN
-      PERFORM public.notify_recruiting_staff(
-        'application_submitted','New 52 Logistics application',
-        'Reference: ' || NEW.reference_code || '; position: ' || coalesce(NEW.position_title,'Selected opening'),
-        '/portal/recruiting/' || NEW.id::text);
-    END IF;
   END IF;
   RETURN NEW;
 END;
@@ -1527,8 +1570,8 @@ $revoke_trigger_exec$;
 
 -- Private storage bucket; no direct anon/authenticated object policies. Upload,
 -- download, delete, and signed URL operations require a trusted server proxy.
--- Only that server may call the service_role-only metadata RPC after validating
--- the resume token and the uploaded object. Redact bearer tokens from request logs.
+-- The proxy must inspect actual file bytes, reject malware, avoid public caching,
+-- and redact bearer tokens; object metadata alone is not file-content validation.
 INSERT INTO storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
 VALUES ('applicant-documents','applicant-documents',false,10485760,
         ARRAY['application/pdf','image/jpeg','image/png'])
@@ -1554,7 +1597,20 @@ BEGIN
 END;
 $drop_storage_policies$;
 
--- No replacement client storage policy is created; this remains deny-by-default
--- until a reviewed token-authorized upload/download proxy is deployed.
+-- Restrictive bucket guards also override unrelated permissive client policies
+-- that may allow general storage access without naming this bucket.
+DROP POLICY IF EXISTS applicant_documents_client_select_block ON storage.objects;
+CREATE POLICY applicant_documents_client_select_block ON storage.objects AS RESTRICTIVE
+  FOR SELECT TO anon, authenticated USING (bucket_id <> 'applicant-documents');
+DROP POLICY IF EXISTS applicant_documents_client_insert_block ON storage.objects;
+CREATE POLICY applicant_documents_client_insert_block ON storage.objects AS RESTRICTIVE
+  FOR INSERT TO anon, authenticated WITH CHECK (bucket_id <> 'applicant-documents');
+DROP POLICY IF EXISTS applicant_documents_client_update_block ON storage.objects;
+CREATE POLICY applicant_documents_client_update_block ON storage.objects AS RESTRICTIVE
+  FOR UPDATE TO anon, authenticated USING (bucket_id <> 'applicant-documents')
+  WITH CHECK (bucket_id <> 'applicant-documents');
+DROP POLICY IF EXISTS applicant_documents_client_delete_block ON storage.objects;
+CREATE POLICY applicant_documents_client_delete_block ON storage.objects AS RESTRICTIVE
+  FOR DELETE TO anon, authenticated USING (bucket_id <> 'applicant-documents');
 
 COMMIT;

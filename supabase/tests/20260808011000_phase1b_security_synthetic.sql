@@ -79,6 +79,16 @@ SELECT '55555555-5555-4555-8555-555555555555','a1111111-1111-4111-8111-111111111
        j.id,'draft','Consumed',encode(extensions.digest(convert_to('phase1b-consumed-token-0123456789abcdef','UTF8'),'sha256'),'hex'),now()+interval '1 day',now()
 FROM public.jobs j WHERE j.slug='phase1b-synthetic';
 
+UPDATE public.applications
+SET phone='7175550100', city='Harrisburg', state='PA', postal_code='17101',
+    cdl_state='PA', cdl_class='A', commercial_experience_years=4.0,
+    tractor_trailer_experience=true, linehaul_pd_experience=true,
+    schedule_availability=ARRAY['weekday_evenings'], start_availability='Two weeks',
+    can_perform_duties_with_or_without_accommodation=true,
+    medical_card_status='current', medical_card_expiration_month=12,
+    medical_card_expiration_year=2027, agrees_to_comply=true
+WHERE id='11111111-1111-4111-8111-111111111111';
+
 INSERT INTO public.application_documents
  (application_id,user_id,doc_type,storage_path,file_name,mime_type,size_bytes)
 VALUES
@@ -88,6 +98,10 @@ VALUES
 INSERT INTO public.drivers(user_id,status)
 VALUES ('e5555555-5555-4555-8555-555555555555','active'),
        ('b2222222-2222-4222-8222-222222222222','active');
+
+INSERT INTO public.academy_modules(slug,title,published)
+VALUES ('phase1b-security-test','Synthetic security test',true)
+ON CONFLICT (slug) DO NOTHING;
 
 -- Anonymous and authenticated applicant direct access to protected application
 -- rows must fail due to revoked privileges, regardless of forged application ID.
@@ -155,6 +169,11 @@ BEGIN
        '{"first_name":"Updated Alpha","current_step":2,"preferred_name":"Al","medical_card_status":"current"}'::jsonb) THEN
     RAISE EXCEPTION 'draft save rejected allowlisted changes';
   END IF;
+  IF NOT public.save_application_employers(
+       'phase1b-valid-token-a-0123456789abcdef',
+       '[{"employer_name":"Synthetic Carrier","position_held":"Driver","start_date":"2024-01-01","reason_for_leaving":"Seeking a new opportunity","current_employer":false,"commercial_driving_relevant":true,"permission_to_contact":false}]'::jsonb) THEN
+    RAISE EXCEPTION 'token-scoped employment history save failed';
+  END IF;
   IF public.submit_application_draft('phase1b-valid-token-a-0123456789abcdef','') IS NOT NULL THEN
     RAISE EXCEPTION 'submission accepted a blank signature';
   END IF;
@@ -164,6 +183,18 @@ BEGIN
   IF public.resume_application('phase1b-valid-token-a-0123456789abcdef') IS NOT NULL THEN
     RAISE EXCEPTION 'consumed token remained usable after submission';
   END IF;
+  BEGIN
+    INSERT INTO public.application_events(application_id,event_type,description)
+    VALUES ('11111111-1111-4111-8111-111111111111','forged','Applicant event');
+    RAISE EXCEPTION 'applicant inserted a forged event';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    INSERT INTO public.application_notes(application_id,body)
+    VALUES ('11111111-1111-4111-8111-111111111111','Applicant note');
+    RAISE EXCEPTION 'applicant inserted an internal note';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
   IF (SELECT count(*) FROM public.notifications WHERE user_id <> auth.uid()) <> 0 THEN
     RAISE EXCEPTION 'applicant A read another user notification';
   END IF;
@@ -187,6 +218,25 @@ BEGIN
 END;
 $applicant_b_checks$;
 RESET ROLE;
+SET LOCAL ROLE service_role;
+DO $token_revocation_checks$
+BEGIN
+  IF NOT public.revoke_application_resume_token('phase1b-valid-token-b-0123456789abcdef') THEN
+    RAISE EXCEPTION 'trusted server could not revoke an active resume token';
+  END IF;
+END;
+$token_revocation_checks$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','b2222222-2222-4222-8222-222222222222',true);
+DO $revoked_applicant_checks$
+BEGIN
+  IF public.resume_application('phase1b-valid-token-b-0123456789abcdef') IS NOT NULL THEN
+    RAISE EXCEPTION 'revoked resume token remained usable';
+  END IF;
+END;
+$revoked_applicant_checks$;
+RESET ROLE;
 
 -- A recruiter may see applications, but no legacy sensitive columns and no
 -- access to archived screening_records; a developer gets no recruiting access.
@@ -206,10 +256,13 @@ BEGIN
     RAISE EXCEPTION 'recruiter unexpectedly has legacy screening_records access';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
-  UPDATE public.applications SET status='under_review'
-    WHERE id='11111111-1111-4111-8111-111111111111';
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'recruiter could not record a human status decision';
+  IF NOT public.update_application_recruiting_status(
+       '11111111-1111-4111-8111-111111111111','ready_for_review') THEN
+    RAISE EXCEPTION 'recruiter could not record a pipeline status transition';
+  END IF;
+  IF public.update_application_recruiting_status(
+       '11111111-1111-4111-8111-111111111111',NULL) THEN
+    RAISE EXCEPTION 'recruiting status RPC accepted NULL';
   END IF;
 END;
 $recruiter_checks$;
@@ -257,8 +310,95 @@ BEGIN
      OR NOT has_column_privilege('authenticated','public.drivers','emergency_contact_phone','UPDATE') THEN
     RAISE EXCEPTION 'driver update column grants are too broad or too narrow';
   END IF;
+  IF (SELECT count(*) FROM public.academy_modules WHERE slug='phase1b-security-test') <> 1 THEN
+    RAISE EXCEPTION 'active driver cannot read published portal content';
+  END IF;
 END;
 $driver_checks$;
+RESET ROLE;
+SET LOCAL ROLE service_role;
+UPDATE public.drivers SET status='inactive'
+WHERE user_id='e5555555-5555-4555-8555-555555555555';
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','e5555555-5555-4555-8555-555555555555',true);
+DO $inactive_driver_checks$
+BEGIN
+  IF (SELECT count(*) FROM public.drivers WHERE user_id=auth.uid()) <> 0
+     OR (SELECT count(*) FROM public.academy_modules WHERE slug='phase1b-security-test') <> 0 THEN
+    RAISE EXCEPTION 'inactive driver retained portal access';
+  END IF;
+END;
+$inactive_driver_checks$;
+RESET ROLE;
+
+DO $snapshot_checks$
+BEGIN
+  IF (SELECT submitted_response_snapshot ? 'employers'
+      FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') IS DISTINCT FROM true
+     OR (SELECT jsonb_array_length(submitted_response_snapshot->'employers')
+         FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') <> 1 THEN
+    RAISE EXCEPTION 'submission snapshot omitted employment history';
+  END IF;
+  BEGIN
+    UPDATE public.applications SET first_name='Corrupted'
+    WHERE id='11111111-1111-4111-8111-111111111111';
+    RAISE EXCEPTION 'submitted response update was not blocked';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'submitted application responses are immutable' THEN RAISE; END IF;
+  END;
+  IF (SELECT first_name FROM public.applications
+      WHERE id='11111111-1111-4111-8111-111111111111') <> 'Updated Alpha' THEN
+    RAISE EXCEPTION 'immutable response changed after submission';
+  END IF;
+END;
+$snapshot_checks$;
+
+-- A temporary developer receives only a bounded public-content grant; revocation
+-- immediately invalidates the scoped helper without adding other role capabilities.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','a7777777-7777-4777-8777-777777777777',true);
+DO $developer_grant_checks$
+BEGIN
+  IF NOT public.grant_temporary_public_content_access(
+       'f6666666-6666-4666-8666-666666666666','Synthetic support',interval '1 hour') THEN
+    RAISE EXCEPTION 'administrator could not grant temporary scoped access';
+  END IF;
+END;
+$developer_grant_checks$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','f6666666-6666-4666-8666-666666666666',true);
+DO $developer_scope_checks$
+BEGIN
+  IF NOT public.has_temporary_developer_scope(auth.uid(),'public_content') THEN
+    RAISE EXCEPTION 'temporary developer scope did not activate';
+  END IF;
+  IF public.has_temporary_developer_scope(auth.uid(),'security_settings') THEN
+    RAISE EXCEPTION 'developer received an unapproved scope';
+  END IF;
+END;
+$developer_scope_checks$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','a7777777-7777-4777-8777-777777777777',true);
+DO $developer_revoke_checks$
+BEGIN
+  IF NOT public.revoke_temporary_developer_access('f6666666-6666-4666-8666-666666666666') THEN
+    RAISE EXCEPTION 'administrator could not revoke temporary access';
+  END IF;
+END;
+$developer_revoke_checks$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','f6666666-6666-4666-8666-666666666666',true);
+DO $developer_revoked_checks$
+BEGIN
+  IF public.has_temporary_developer_scope(auth.uid(),'public_content') THEN
+    RAISE EXCEPTION 'revoked developer scope remained active';
+  END IF;
+END;
+$developer_revoked_checks$;
 RESET ROLE;
 
 -- Notifications have no arbitrary recipient API or direct writes; each user can
@@ -272,6 +412,16 @@ BEGIN
        'public.notify_user(uuid,text,text,text,text)','EXECUTE') THEN
     RAISE EXCEPTION 'authenticated can call arbitrary-recipient notify_user';
   END IF;
+  IF has_function_privilege('authenticated',
+       'public.create_application_upload_target(text,text,text,text,bigint)','EXECUTE')
+     OR has_function_privilege('authenticated','public.record_application_document(text,uuid)','EXECUTE')
+     OR has_function_privilege('authenticated','public.delete_application_document(text,uuid)','EXECUTE')
+     OR has_function_privilege('authenticated','public.complete_application_document_deletion(text,uuid)','EXECUTE')
+     OR has_function_privilege('authenticated','public.revoke_application_resume_token(text)','EXECUTE')
+     OR NOT has_function_privilege('service_role',
+       'public.create_application_upload_target(text,text,text,text,bigint)','EXECUTE') THEN
+    RAISE EXCEPTION 'trusted upload or revocation function grants are incorrect';
+  END IF;
   IF has_table_privilege('authenticated','public.notifications','INSERT') THEN
     RAISE EXCEPTION 'authenticated can insert notifications';
   END IF;
@@ -279,14 +429,15 @@ BEGIN
                  WHERE id='applicant-documents' AND public=false) THEN
     RAISE EXCEPTION 'applicant document bucket is absent or public';
   END IF;
-  IF EXISTS (
-    SELECT 1 FROM pg_policies p
-    WHERE p.schemaname='storage' AND p.tablename='objects'
-      AND (p.roles @> ARRAY['anon'::name] OR p.roles @> ARRAY['authenticated'::name])
-      AND (coalesce(p.qual,'') || ' ' || coalesce(p.with_check,''))
-          ILIKE '%applicant-documents%'
-  ) THEN
-    RAISE EXCEPTION 'client storage policy still references applicant-documents';
+  IF (SELECT count(*) FROM pg_policies p
+      WHERE p.schemaname='storage' AND p.tablename='objects'
+        AND p.permissive='RESTRICTIVE'
+        AND p.policyname IN (
+          'applicant_documents_client_select_block',
+          'applicant_documents_client_insert_block',
+          'applicant_documents_client_update_block',
+          'applicant_documents_client_delete_block')) <> 4 THEN
+    RAISE EXCEPTION 'applicant bucket is not guarded against broad client storage policies';
   END IF;
 END;
 $static_security_checks$;
@@ -301,7 +452,8 @@ BEGIN
   END IF;
   IF (SELECT count(*) FROM public.security_audit_events
       WHERE target_type='application'
-        AND target_id='11111111-1111-4111-8111-111111111111') <> 2 THEN
+        AND target_id='11111111-1111-4111-8111-111111111111'
+        AND action IN ('application_submitted','recruiting_status_changed')) <> 3 THEN
     RAISE EXCEPTION 'admin cannot read expected append-only submission/status audit';
   END IF;
 END;
