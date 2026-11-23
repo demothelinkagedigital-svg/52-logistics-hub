@@ -337,7 +337,11 @@ BEGIN
   IF (SELECT submitted_response_snapshot ? 'employers'
       FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') IS DISTINCT FROM true
      OR (SELECT jsonb_array_length(submitted_response_snapshot->'employers')
-         FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') <> 2 THEN
+         FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') <> 2
+     OR (SELECT submitted_response_snapshot->'employers'->0->>'employer_name'
+         FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') <> 'Synthetic Carrier'
+     OR (SELECT submitted_response_snapshot->'employers'->1->>'employer_name'
+         FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') <> 'Synthetic Carrier Two' THEN
     RAISE EXCEPTION 'submission snapshot omitted employment history';
   END IF;
   BEGIN
@@ -419,7 +423,11 @@ BEGIN
      OR has_function_privilege('authenticated','public.complete_application_document_deletion(text,uuid)','EXECUTE')
      OR has_function_privilege('authenticated','public.revoke_application_resume_token(text)','EXECUTE')
      OR NOT has_function_privilege('service_role',
-       'public.create_application_upload_target(text,text,text,text,bigint)','EXECUTE') THEN
+       'public.create_application_upload_target(text,text,text,text,bigint)','EXECUTE')
+     OR NOT has_function_privilege('service_role','public.record_application_document(text,uuid)','EXECUTE')
+     OR NOT has_function_privilege('service_role','public.delete_application_document(text,uuid)','EXECUTE')
+     OR NOT has_function_privilege('service_role','public.complete_application_document_deletion(text,uuid)','EXECUTE')
+     OR NOT has_function_privilege('service_role','public.revoke_application_resume_token(text)','EXECUTE') THEN
     RAISE EXCEPTION 'trusted upload or revocation function grants are incorrect';
   END IF;
   IF has_table_privilege('authenticated','public.notifications','INSERT') THEN
