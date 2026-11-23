@@ -536,6 +536,10 @@ BEGIN
      OR (_grant AND EXISTS (
        SELECT 1 FROM public.user_roles dev
        WHERE dev.user_id = _user_id AND dev.role = 'developer'::public.app_role
+     ))
+     OR (_grant AND EXISTS (
+       SELECT 1 FROM public.temporary_developer_grants g
+       WHERE g.user_id = _user_id AND g.revoked_at IS NULL AND now() < g.expires_at
      )) THEN
     RETURN false;
   END IF;
@@ -596,7 +600,10 @@ BEGIN
   IF NOT public.has_role(auth.uid(),'administrator'::public.app_role) THEN RETURN false; END IF;
   UPDATE public.temporary_developer_grants SET revoked_at = now()
     WHERE user_id = _user_id AND revoked_at IS NULL;
-  DELETE FROM public.user_roles WHERE user_id = _user_id AND role = 'developer'::public.app_role;
+  DELETE FROM public.user_roles dev
+  WHERE dev.user_id = _user_id AND dev.role = 'developer'::public.app_role
+    AND NOT EXISTS (SELECT 1 FROM public.user_roles other
+                    WHERE other.user_id = _user_id AND other.role <> 'developer'::public.app_role);
   INSERT INTO public.security_audit_events(actor_id,action,target_type,target_id)
     VALUES (auth.uid(),'temporary_developer_access_revoked','user',_user_id::text);
   RETURN true;
@@ -617,7 +624,14 @@ BEGIN
     RETURNING user_id
   )
   INSERT INTO public.security_audit_events(actor_id,action,target_type,target_id)
-    SELECT NULL,'temporary_developer_access_expired','user',expired_users.user_id::text
+    SELECT NULL,
+      CASE WHEN EXISTS (
+        SELECT 1 FROM public.user_roles other
+        WHERE other.user_id = expired_users.user_id
+          AND other.role <> 'developer'::public.app_role
+      ) THEN 'temporary_developer_access_expired_role_review_required'
+      ELSE 'temporary_developer_access_expired' END,
+      'user',expired_users.user_id::text
     FROM (SELECT DISTINCT user_id FROM expired) expired_users;
 
   WITH removed AS (
@@ -626,6 +640,10 @@ BEGIN
       AND NOT EXISTS (
         SELECT 1 FROM public.temporary_developer_grants g
         WHERE g.user_id = ur.user_id AND g.revoked_at IS NULL AND now() < g.expires_at
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM public.user_roles other
+        WHERE other.user_id = ur.user_id AND other.role <> 'developer'::public.app_role
       )
     RETURNING ur.user_id
   )

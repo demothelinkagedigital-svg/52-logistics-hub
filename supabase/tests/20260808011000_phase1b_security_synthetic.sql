@@ -571,7 +571,9 @@ UPDATE public.temporary_developer_grants
 SET expires_at=now()-interval '1 second'
 WHERE user_id='f6666666-6666-4666-8666-666666666666' AND revoked_at IS NULL;
 INSERT INTO public.user_roles(user_id,role,granted_by)
-VALUES ('f6666666-6666-4666-8666-666666666666','developer','a7777777-7777-4777-8777-777777777777')
+VALUES
+ ('f6666666-6666-4666-8666-666666666666','developer','a7777777-7777-4777-8777-777777777777'),
+ ('f6666666-6666-4666-8666-666666666666','recruiter','a7777777-7777-4777-8777-777777777777')
 ON CONFLICT (user_id,role) DO NOTHING;
 RESET ROLE;
 SET LOCAL ROLE authenticated;
@@ -580,6 +582,7 @@ DO $developer_expiry_enforcement$
 BEGIN
   IF public.has_temporary_developer_scope(auth.uid(),'public_content')
      OR public.has_role(auth.uid(),'developer'::public.app_role)
+     OR public.has_role(auth.uid(),'recruiter'::public.app_role)
      OR (SELECT count(*) FROM public.user_roles) <> 0 THEN
     RAISE EXCEPTION 'expired grant or stale role marker authorized access before cleanup';
   END IF;
@@ -589,11 +592,31 @@ RESET ROLE;
 SET LOCAL ROLE service_role;
 DO $developer_expiry_cleanup$
 BEGIN
-  IF public.cleanup_expired_temporary_developer_access() <> 1 THEN
-    RAISE EXCEPTION 'expiry cleanup did not remove the stale developer role marker';
+  IF public.cleanup_expired_temporary_developer_access() <> 0 THEN
+    RAISE EXCEPTION 'cleanup removed a developer marker before mixed roles were reviewed';
   END IF;
 END;
 $developer_expiry_cleanup$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','a7777777-7777-4777-8777-777777777777',true);
+DO $developer_mixed_role_review$
+BEGIN
+  IF NOT public.admin_set_user_role(
+       'f6666666-6666-4666-8666-666666666666','recruiter'::public.app_role,false) THEN
+    RAISE EXCEPTION 'administrator could not remove the conflicting synthetic role';
+  END IF;
+END;
+$developer_mixed_role_review$;
+RESET ROLE;
+SET LOCAL ROLE service_role;
+DO $developer_expiry_cleanup_after_review$
+BEGIN
+  IF public.cleanup_expired_temporary_developer_access() <> 1 THEN
+    RAISE EXCEPTION 'cleanup did not remove the reviewed stale developer marker';
+  END IF;
+END;
+$developer_expiry_cleanup_after_review$;
 RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','f6666666-6666-4666-8666-666666666666',true);
@@ -684,6 +707,10 @@ DO $admin_checks$
 BEGIN
   IF NOT public.has_role(auth.uid(),'administrator'::public.app_role) THEN
     RAISE EXCEPTION 'admin role helper failed for self';
+  END IF;
+  IF public.admin_set_user_role(
+       'f6666666-6666-4666-8666-666666666666','developer'::public.app_role,true) THEN
+    RAISE EXCEPTION 'administrator assigned a permanent developer role';
   END IF;
   IF (SELECT count(*) FROM public.security_audit_events
       WHERE target_type='application'
