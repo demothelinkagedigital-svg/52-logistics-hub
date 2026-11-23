@@ -1,21 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@/lib/mock/server-fn";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { AlertTriangle, Check, Loader2, Save, Trash2, Upload } from "lucide-react";
 import {
-  getMyApplication,
-  startApplication,
-  saveApplicationDraft,
-  saveEmployers,
-  recordDocument,
-  deleteDocument,
-  submitApplication,
-  type PortalApplicationDraft,
-} from "@/lib/portal.functions";
-import { getDocumentUrl } from "@/lib/recruiting.functions";
+  getApplicationByToken,
+  saveApplicationDraftByToken,
+  saveEmployersByToken,
+  recordDocumentByToken,
+  deleteDocumentByToken,
+  submitApplicationByToken,
+} from "@/lib/public-application.functions";
+import type { PortalApplicationDraft } from "@/lib/portal.functions";
 import { getPublicJobs, type PublicJob } from "@/lib/public-content.functions";
 import {
   APPLICATION_STEPS,
@@ -27,27 +25,6 @@ import {
 import { demoClient as supabase } from "@/lib/mock/client";
 import { PortalHeading } from "@/components/portal/PortalShell";
 import { ErrorState, Panel, StatusBadge, TableSkeleton } from "@/components/portal/ui";
-
-export const Route = createFileRoute("/_authenticated/portal/application")({
-  head: () => ({
-    meta: [
-      { title: "My Application — 52 Logistics Portal" },
-      {
-        name: "description",
-        content: "Complete, save and submit your 52 Logistics driver application.",
-      },
-      { property: "og:title", content: "My Application — 52 Logistics Portal" },
-      {
-        property: "og:description",
-        content: "Six-step driver application with save and resume.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "robots", content: "noindex" },
-    ],
-  }),
-  component: ApplicationPage,
-});
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = ["application/pdf", "image/jpeg", "image/png"] as const;
@@ -77,6 +54,7 @@ type Doc = {
   rejection_reason: string | null;
   created_at: string;
   size_bytes: number | null;
+  storage_path: string;
 };
 type FormErrors = Record<string, string>;
 
@@ -201,6 +179,7 @@ function YesNo({
             type="button"
             disabled={disabled}
             aria-pressed={value === v}
+            aria-invalid={Boolean(error)}
             onClick={() => onChange(v)}
             className={`min-h-11 min-w-20 rounded-sm border px-4 py-2 text-sm font-semibold uppercase ${
               value === v
@@ -237,6 +216,7 @@ function CheckField({
           type="checkbox"
           checked={checked}
           disabled={disabled}
+          aria-invalid={Boolean(error)}
           onChange={(event) => onChange(event.target.checked)}
           className="mt-0.5 size-5 shrink-0 accent-primary"
         />
@@ -253,20 +233,25 @@ function displayDate(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
-function ApplicationPage() {
+export function ApplicationForm({ token }: { token: string }) {
   const queryClient = useQueryClient();
-  const fetchApp = useServerFn(getMyApplication);
-  const start = useServerFn(startApplication);
-  const saveDraft = useServerFn(saveApplicationDraft);
-  const saveEmp = useServerFn(saveEmployers);
-  const recordDoc = useServerFn(recordDocument);
-  const removeDoc = useServerFn(deleteDocument);
-  const submit = useServerFn(submitApplication);
-  const openDoc = useServerFn(getDocumentUrl);
+  const [resumeLink, setResumeLink] = useState<string | undefined>(undefined);
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["my-application"],
-    queryFn: () => fetchApp(),
+  useEffect(() => {
+    setResumeLink(window.location.href);
+  }, [token]);
+  const fetchApp = useServerFn(getApplicationByToken);
+  const saveDraft = useServerFn(saveApplicationDraftByToken);
+  const saveEmp = useServerFn(saveEmployersByToken);
+  const recordDoc = useServerFn(recordDocumentByToken);
+  const removeDoc = useServerFn(deleteDocumentByToken);
+  const submit = useServerFn(submitApplicationByToken);
+
+  const { data, isLoading, error, refetch } = useQuery<any>({
+    queryKey: ["public-application", token],
+    queryFn: () => fetchApp({ data: { token } }),
+    retry: false,
+    staleTime: 30_000,
   });
   const { data: jobs = [] } = useQuery<PublicJob[]>({
     queryKey: PUBLIC_JOBS_KEY,
@@ -274,8 +259,9 @@ function ApplicationPage() {
     staleTime: 60_000,
   });
 
-  const app = data?.application ?? null;
-  const editable = !app || app.status === "draft" || app.status === "corrections_requested";
+  const submitted = data && "reference" in data ? data : null;
+  const app = data && "application" in data ? data.application : null;
+  const editable = Boolean(app && (app.status === "draft" || app.status === "corrections_requested"));
   const [step, setStep] = useState(1);
   const [values, setValues] = useState<PortalApplicationDraft>({});
   const [employers, setEmployers] = useState<EmployerInput[]>([]);
@@ -283,15 +269,16 @@ function ApplicationPage() {
   const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{ state: "idle" | "saved" | "error"; time?: string }>({ state: "idle" });
+  const saveFlight = useRef<Promise<boolean> | null>(null);
+  const pendingSave = useRef<{ values: PortalApplicationDraft; employers: EmployerInput[]; step: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
   const hydrated = useRef(false);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
   const selectedJob = jobs.find((job) => job.id === values.job_id);
-  const docs = (data?.documents ?? []) as unknown as Doc[];
-  const showConfirmation = Boolean(
-    app?.submitted_at && app.status !== "draft" && app.status !== "corrections_requested",
-  );
+  const docs = ((data && "documents" in data ? data.documents : []) ?? []) as unknown as Doc[];
+  const showConfirmation = Boolean(submitted);
   const schedules = useMemo(
     () =>
       jobs.map((job) => ({
@@ -302,7 +289,7 @@ function ApplicationPage() {
   );
 
   useEffect(() => {
-    if (!data || hydrated.current) return;
+    if (!data || hydrated.current || !("application" in data)) return;
     hydrated.current = true;
     if (data.application) {
       const a = data.application;
@@ -345,7 +332,7 @@ function ApplicationPage() {
       setStep(Math.min(Math.max(Number(a.current_step) || 1, 1), 6));
     }
     setEmployers(
-      (data.employers ?? []).map((employer) => ({
+      ((data.employers ?? []) as any[]).map((employer) => ({
         employer_name: employer.employer_name,
         position_held: employer.position_held,
         city: employer.city,
@@ -418,50 +405,57 @@ function ApplicationPage() {
     key: K,
     value: EmployerInput[K],
   ) {
-    setEmployers((current) =>
-      current.map((employer, i) => (i === index ? { ...employer, [key]: value } : employer)),
-    );
+    setEmployers((current) => current.map((employer, i) => {
+      if (i !== index) return employer;
+      const updated = { ...employer, [key]: value };
+      if (key === "current_employer" && value === true) {
+        updated.end_date = "";
+        updated.reason_for_leaving = "";
+      }
+      return updated;
+    }));
     setErrors({});
   }
 
-  async function ensureApp(): Promise<string> {
-    if (app?.id) return app.id;
-    const created = await start({
-      data: {
-        job_id: values.job_id ?? undefined,
-        position_title: selectedJob?.position,
-      },
-    });
-    await queryClient.invalidateQueries({ queryKey: ["my-application"] });
-    await queryClient.invalidateQueries({ queryKey: ["portal"] });
-    return created.id;
-  }
-
   async function persist(nextStep?: number, extra: Partial<PortalApplicationDraft> = {}) {
-    setSaving(true);
-    try {
-      const id = await ensureApp();
-      await saveDraft({
-        data: {
-          id,
-          values: {
-            ...values,
-            ...extra,
-            job_id: values.job_id ?? null,
-            position_title: selectedJob?.position ?? values.position_title ?? null,
-            current_step: nextStep ?? step,
-          },
-        },
-      });
-      await saveEmp({ data: { id, employers } });
-      await queryClient.invalidateQueries({ queryKey: ["my-application"] });
-      return true;
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not save");
-      return false;
-    } finally {
-      setSaving(false);
+    pendingSave.current = {
+      values: {
+        ...values,
+        ...extra,
+        job_id: values.job_id ?? null,
+        position_title: selectedJob?.position ?? values.position_title ?? null,
+        current_step: nextStep ?? step,
+      },
+      employers: structuredClone(employers),
+      step: nextStep ?? step,
+    };
+    if (!saveFlight.current) {
+      setSaving(true);
+      setSaveStatus({ state: "idle" });
+      saveFlight.current = (async () => {
+        try {
+          while (pendingSave.current) {
+            const snapshot = pendingSave.current;
+            pendingSave.current = null;
+            await saveDraft({ data: { token, values: snapshot.values } });
+            await saveEmp({ data: { token, employers: snapshot.employers } });
+            const fresh = await fetchApp({ data: { token } });
+            queryClient.setQueryData(["public-application", token], fresh);
+          }
+          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          setSaveStatus({ state: "saved", time });
+          return true;
+        } catch {
+          pendingSave.current = null;
+          setSaveStatus({ state: "error" });
+          return false;
+        } finally {
+          setSaving(false);
+          saveFlight.current = null;
+        }
+      })();
     }
+    return saveFlight.current;
   }
 
   useEffect(() => {
@@ -474,25 +468,7 @@ function ApplicationPage() {
     )
       return;
     const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const id = await ensureApp();
-          await saveDraft({
-            data: {
-              id,
-              values: {
-                ...values,
-                job_id: values.job_id ?? null,
-                position_title: selectedJob?.position ?? values.position_title ?? null,
-                current_step: step,
-              },
-            },
-          });
-          await saveEmp({ data: { id, employers } });
-        } catch {
-          toast.error("Progress could not be saved. Please try again.");
-        }
-      })();
+      void persist(step);
     }, 700);
     return () => window.clearTimeout(timer);
   }, [values, employers, step, isLoading, editable, showConfirmation, app?.id, selectedJob]);
@@ -567,10 +543,16 @@ function ApplicationPage() {
         if (!employer.position_held?.trim()) next[`${prefix}position_held`] = "Role is required.";
         if (!employer.start_date)
           next[`${prefix}start_date`] = "Start month and year are required.";
+        if (employer.start_date && employer.start_date > new Date().toISOString().slice(0, 7))
+          next[`${prefix}start_date`] = "Start date cannot be in the future.";
         if (employer.current_employer == null)
           next[`${prefix}current_employer`] = "Choose yes or no.";
         if (!employer.current_employer && !employer.end_date)
           next[`${prefix}end_date`] = "End month and year are required.";
+        if (!employer.current_employer && employer.end_date && employer.end_date > new Date().toISOString().slice(0, 7))
+          next[`${prefix}end_date`] = "End date cannot be in the future.";
+        if (!employer.current_employer && employer.start_date && employer.end_date && employer.end_date < employer.start_date)
+          next[`${prefix}end_date`] = "End date cannot be before the start date.";
         if (!employer.city?.trim()) next[`${prefix}city`] = "City is required.";
         if (!employer.state?.trim()) next[`${prefix}state`] = "State is required.";
         if (employer.commercial_driving_relevant == null)
@@ -589,6 +571,14 @@ function ApplicationPage() {
     }
     return next;
   }
+
+  useEffect(() => {
+    const first = document.querySelector<HTMLElement>('[aria-invalid="true"]');
+    if (first) {
+      first.scrollIntoView({ behavior: "smooth", block: "center" });
+      first.focus({ preventScroll: true });
+    }
+  }, [errors]);
 
   function goTo(nextStep: number) {
     if (nextStep > step) {
@@ -618,12 +608,9 @@ function ApplicationPage() {
     }
     setUploading(docType);
     try {
-      const id = await ensureApp();
-      const { data: userData } = await supabase.auth.getUser();
-      const uid = userData.user?.id;
-      if (!uid) throw new Error("Session expired — please sign in again.");
+      if (!app?.id) throw new Error("Application could not be loaded.");
       const ext = file.name.split(".").pop() ?? "dat";
-      const path = `${uid}/${id}/${docType}-${Date.now()}.${ext}`;
+      const path = `${app.id}/${docType}-${crypto.randomUUID()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("applicant-documents")
         .upload(path, file);
@@ -631,7 +618,7 @@ function ApplicationPage() {
         throw new Error(String((uploadError as { message?: string }).message ?? "Upload failed"));
       await recordDoc({
         data: {
-          application_id: id,
+          token,
           doc_type: docType,
           storage_path: path,
           file_name: file.name,
@@ -639,10 +626,10 @@ function ApplicationPage() {
           size_bytes: file.size,
         },
       });
-      await queryClient.invalidateQueries({ queryKey: ["my-application"] });
+      queryClient.setQueryData(["public-application", token], await fetchApp({ data: { token } }));
       toast.success("Document uploaded");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Upload failed");
+      toast.error("Upload failed. Please try again.");
     } finally {
       setUploading(null);
     }
@@ -651,8 +638,8 @@ function ApplicationPage() {
   async function handleDelete(doc: Doc) {
     setBusy(true);
     try {
-      await removeDoc({ data: { id: doc.id } });
-      await queryClient.invalidateQueries({ queryKey: ["my-application"] });
+      await removeDoc({ data: { token, id: doc.id } });
+      queryClient.setQueryData(["public-application", token], await fetchApp({ data: { token } }));
       toast.success("Document removed");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not remove document");
@@ -663,22 +650,32 @@ function ApplicationPage() {
 
   async function view(id: string) {
     try {
-      const { url } = await openDoc({ data: { id } });
-      window.open(url, "_blank", "noopener,noreferrer");
+      const doc = docs.find((item) => item.id === id);
+      if (!doc) return;
+      const { data: signed, error } = await supabase.storage.from("applicant-documents").createSignedUrl(doc.storage_path, 300);
+      if (error || !signed) throw new Error("Could not open document");
+      window.open(signed.signedUrl, "_blank", "noopener,noreferrer");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not open document");
+      toast.error("Could not open document.");
     }
   }
 
   async function handleSubmit() {
-    const nextErrors = validateStep(6);
+    const nextErrors = [1, 2, 3, 4, 5, 6].reduce<FormErrors>(
+      (all, stepToValidate) => ({ ...all, ...validateStep(stepToValidate) }),
+      {},
+    );
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
+      const firstInvalidStep = [1, 2, 3, 4, 5, 6].find((stepToValidate) =>
+        Object.keys(validateStep(stepToValidate)).length > 0,
+      );
+      if (firstInvalidStep) setStep(firstInvalidStep);
       return;
     }
     setBusy(true);
     try {
-      const id = await ensureApp();
+      if (!app?.id) throw new Error("Application could not be loaded.");
       const qualificationGapReasons: string[] = [];
       if (values.is_18_or_older !== true)
         qualificationGapReasons.push("Applicant did not confirm they are at least 18 years old.");
@@ -722,7 +719,7 @@ function ApplicationPage() {
       const qualificationGap = qualificationGapReasons.length > 0;
       await saveDraft({
         data: {
-          id,
+          token,
           values: {
             ...values,
             job_id: values.job_id ?? null,
@@ -734,14 +731,17 @@ function ApplicationPage() {
           },
         },
       });
-      await saveEmp({ data: { id, employers } });
-      await submit({ data: { id, signature_name: signature.trim() } });
-      await queryClient.invalidateQueries({ queryKey: ["my-application"] });
-      await queryClient.invalidateQueries({ queryKey: ["portal"] });
-      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      await saveEmp({ data: { token, employers } });
+      const result = await submit({ data: { token, signature_name: signature.trim() } });
+      queryClient.setQueryData(["public-application", token], {
+        reference: result.reference,
+        position: result.position,
+        submitted_at: result.submitted_at,
+        label: "Application received",
+      });
       toast.success("Application submitted for review");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not submit");
+      toast.error("Could not submit your application. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -755,20 +755,20 @@ function ApplicationPage() {
       </div>
     );
   }
-  if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
+  if (error) return <ErrorState error={new Error("This application link is invalid or expired.")} onRetry={() => void refetch()} />;
 
   if (showConfirmation) {
     return (
       <div className="mx-auto w-full max-w-3xl">
-        <PortalHeading eyebrow="Recruiting" title="Application submitted" />
+        <PortalHeading eyebrow="Recruiting" title={submitted.label} />
         <Panel title="Thank you for applying">
           <div className="space-y-4 text-sm">
             <p>
               Reference number:{" "}
-              <span className="font-mono font-semibold">{app.reference_code}</span>
+              <span className="font-mono font-semibold">{submitted.reference}</span>
             </p>
-            <p>Selected position: {app.position_title ?? selectedJob?.position ?? "—"}</p>
-            <p>Submitted: {displayDate(app.submitted_at)}</p>
+            <p>Selected position: {submitted.position ?? "—"}</p>
+            <p>Submitted: {displayDate(submitted.submitted_at)}</p>
             <p className="leading-relaxed text-muted-foreground">
               Recruiting will review your application. If you advance, 52 Logistics may start a
               separate screening process through First Advantage, which will contact you directly.
@@ -784,7 +784,7 @@ function ApplicationPage() {
     <div className="mx-auto w-full min-w-0 max-w-4xl">
       <PortalHeading
         eyebrow="Recruiting"
-        title="My application"
+        title="Driver application"
         blurb="Save at any time and resume later. Required fields are marked with an asterisk."
         action={
           app ? (
@@ -798,6 +798,18 @@ function ApplicationPage() {
           ) : undefined
         }
       />
+
+      {resumeLink ? (
+        <div className="mb-6 rounded-sm border border-accent/40 bg-accent/10 p-4 text-sm">
+          <p className="font-semibold">Your private resume link</p>
+          <p className="mt-1 break-all font-mono text-xs">{resumeLink}</p>
+          <button type="button" onClick={() => void navigator.clipboard.writeText(resumeLink)} className="mt-3 rounded-sm border border-input px-3 py-2 font-semibold">Copy</button>
+          <p className="mt-3 text-xs">Keep this link private. Anyone with it can edit your application.</p>
+        </div>
+      ) : null}
+      <p className="mb-5 text-sm" aria-live="polite">
+        {saving ? "Saving…" : saveStatus.state === "saved" ? `Saved ✓ ${saveStatus.time}` : saveStatus.state === "error" ? "Couldn't save – retry" : ""}
+      </p>
 
       {app?.status === "corrections_requested" && app.correction_notes ? (
         <div className="mb-6 flex gap-3 rounded-sm border border-accent/40 bg-accent/10 p-4">
@@ -1101,6 +1113,7 @@ function ApplicationPage() {
                             className="mt-0.5 size-5 shrink-0 accent-primary"
                             checked={checked}
                             disabled={!editable}
+                            aria-invalid={Boolean(errors["schedule_availability"])}
                             onChange={(event) =>
                               set(
                                 "schedule_availability",
@@ -1285,14 +1298,16 @@ function ApplicationPage() {
                           onChange={(v) => setEmployer(index, "state", v)}
                           error={fieldError("state")}
                         />
-                        <TextField
-                          label="Reason for leaving"
-                          required={employer.current_employer !== true}
-                          disabled={!editable || employer.current_employer === true}
-                          value={employer.reason_for_leaving ?? ""}
-                          onChange={(v) => setEmployer(index, "reason_for_leaving", v)}
-                          error={fieldError("reason_for_leaving")}
-                        />
+                        {employer.current_employer !== true ? (
+                          <TextField
+                            label="Reason for leaving"
+                            required
+                            disabled={!editable}
+                            value={employer.reason_for_leaving ?? ""}
+                            onChange={(v) => setEmployer(index, "reason_for_leaving", v)}
+                            error={fieldError("reason_for_leaving")}
+                          />
+                        ) : null}
                       </div>
                       <YesNo
                         label="Is this your current employer?"
@@ -1676,7 +1691,7 @@ function ApplicationPage() {
               className="inline-flex min-h-11 items-center gap-2 rounded-sm border border-input px-4 py-2.5 text-sm font-medium hover:bg-secondary disabled:opacity-60"
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-              Save progress
+              {saveStatus.state === "error" ? "Retry save" : "Save progress"}
             </button>
           ) : null}
           <button

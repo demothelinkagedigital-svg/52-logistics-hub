@@ -82,7 +82,33 @@ export const applicationDraftSchema = z.object({
   qualification_gap: z.boolean().optional(),
   qualification_gap_reasons: z.array(z.string().max(160)).optional(),
 });
-export type ApplicationDraft = z.infer<typeof applicationDraftSchema>;
+export const portalDraftSchema = applicationDraftSchema.omit({ signature_signed_at: true });
+
+export const applicationAccessSchema = z.object({
+  user_id: z.string().uuid().nullable(),
+  resume_token_hash: z.string().nullable(),
+  resume_expires_at: z.string().datetime({ offset: true }).nullable(),
+  source: z.literal("web"),
+  last_saved_at: z.string().datetime({ offset: true }).nullable(),
+});
+
+export const applicationRelatedOwnershipSchema = z.object({
+  user_id: z.string().uuid().nullable(),
+});
+
+export const applicationEmployerSchema = employerSchema.merge(applicationRelatedOwnershipSchema);
+
+export const applicationDocumentSchema = z.object({
+  doc_type: z.enum(["medical_card", "resume"]),
+  storage_path: z.string().max(400),
+  file_name: z.string().max(255).regex(/\.(pdf|jpe?g|png)$/i, "Upload a PDF, JPG, or PNG file."),
+  mime_type: z.enum(["application/pdf", "image/jpeg", "image/png"], {
+    errorMap: () => ({ message: "Upload a PDF, JPG, or PNG file." }),
+  }),
+  size_bytes: z.number({ required_error: "File size is required." })
+    .int().nonnegative().max(10 * 1024 * 1024, "Files must be 10 MiB or smaller."),
+});
+export const applicationDocumentRecordSchema = applicationDocumentSchema.merge(applicationRelatedOwnershipSchema);
 
 export const APPLICATION_STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -118,7 +144,3 @@ export const ESIGN_STATUSES = [
   "declined",
   "voided",
 ] as const;
-
-export function humanize(value: string) {
-  return value.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
-}

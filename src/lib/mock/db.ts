@@ -57,15 +57,6 @@ export const DEMO_USERS = [
     blurb: "Driver hub, Academy courses, handbook and safety center.",
   },
   {
-    id: "44444444-4444-4444-a444-444444444444",
-    email: "applicant@52logistics.demo",
-    full_name: "Tyrone Baker",
-    title: "Applicant",
-    roles: ["applicant"],
-    label: "Applicant",
-    blurb: "The six-step driver application with save and resume.",
-  },
-  {
     id: "55555555-5555-4555-a555-555555555555",
     email: "content@52logistics.demo",
     full_name: "Priya Nair",
@@ -277,7 +268,6 @@ function buildCourseContent() {
 
 function seed(): Tables {
   const lms = buildCourseContent();
-  const applicantId = DEMO_USERS[3].id;
   const driverId = DEMO_USERS[2].id;
   const recruiterId = DEMO_USERS[1].id;
   const adminId = DEMO_USERS[0].id;
@@ -333,7 +323,6 @@ function seed(): Tables {
     {
       first: "Tyrone",
       last: "Baker",
-      user_id: applicantId,
       status: "draft",
       step: 3,
       ref: "52L-1001",
@@ -341,7 +330,6 @@ function seed(): Tables {
     {
       first: "Sandra",
       last: "Willis",
-      user_id: uid(),
       status: "submitted",
       step: 6,
       ref: "52L-1002",
@@ -349,7 +337,6 @@ function seed(): Tables {
     {
       first: "Kevin",
       last: "Ortiz",
-      user_id: uid(),
       status: "under_review",
       step: 6,
       ref: "52L-1003",
@@ -357,7 +344,6 @@ function seed(): Tables {
     {
       first: "Denise",
       last: "Coleman",
-      user_id: uid(),
       status: "corrections_requested",
       step: 6,
       ref: "52L-1004",
@@ -365,16 +351,19 @@ function seed(): Tables {
     {
       first: "Raymond",
       last: "Fields",
-      user_id: uid(),
       status: "conditional_offer",
       step: 6,
       ref: "52L-1005",
     },
-    { first: "Latoya", last: "Simms", user_id: uid(), status: "hired", step: 6, ref: "52L-1006" },
-    { first: "Brian", last: "McCoy", user_id: uid(), status: "rejected", step: 6, ref: "52L-1007" },
+    { first: "Latoya", last: "Simms", status: "hired", step: 6, ref: "52L-1006" },
+    { first: "Brian", last: "McCoy", status: "rejected", step: 6, ref: "52L-1007" },
   ].map((a, i) => ({
     id: `a0000000-0000-4000-a000-00000000000${i + 1}`,
-    user_id: a.user_id,
+    user_id: null,
+    resume_token_hash: i === 0 ? "35a8b2102bb067e1ec0bebef45ac4e3ca920473d36e15199248e9557b27e4660" : null,
+    resume_expires_at: i === 0 ? daysAhead(30) : null,
+    source: "web",
+    last_saved_at: daysAgo(3),
     job_id: jobs[i % jobs.length]!.id,
     reference_code: a.ref,
     first_name: a.first,
@@ -425,7 +414,7 @@ function seed(): Tables {
       application_id: app.id,
       user_id: app.user_id,
       doc_type: "resume",
-      storage_path: `${app.user_id}/resume.pdf`,
+      storage_path: `${app.id}/resume.pdf`,
       file_name: "resume.pdf",
       mime_type: "application/pdf",
       size_bytes: 482113,
@@ -440,7 +429,7 @@ function seed(): Tables {
       application_id: app.id,
       user_id: app.user_id,
       doc_type: "medical_card",
-      storage_path: `${app.user_id}/medical.jpg`,
+      storage_path: `${app.id}/medical.jpg`,
       file_name: "medical-card.jpg",
       mime_type: "image/jpeg",
       size_bytes: 331002,
@@ -490,6 +479,7 @@ function seed(): Tables {
     application_employers: applications.slice(1, 4).map((app, i) => ({
       id: uid(),
       application_id: app.id,
+      user_id: null,
       employer_name: ["Keystone Freight", "Valley Transport", "Ridge Carriers"][i],
       position_held: "Class A Driver",
       city: "Harrisburg",
@@ -564,6 +554,15 @@ function seed(): Tables {
       },
     ],
     site_settings: [
+      {
+        key: "application_resume_days",
+        value: "30",
+        label: "Application resume days",
+        group_name: "recruiting",
+        is_public: false,
+        needs_verification: false,
+        updated_at: daysAgo(30),
+      },
       {
         key: "recruiting_email",
         value: "recruiting@52logisticsinc.com",
@@ -646,7 +645,7 @@ function seed(): Tables {
       ],
       [
         "How do I apply?",
-        "Review the current openings on the Careers page and choose Apply for This Position. The Apply page preselects that opening, and you can change the selection before emailing recruiting.",
+        "Choose an opening on the Careers page and complete the secure application. You may save and return using your private resume link.",
       ],
       [
         "Does applying guarantee employment?",
@@ -654,7 +653,7 @@ function seed(): Tables {
       ],
       [
         "What happens after I apply?",
-        "Your inquiry goes to recruiting. A recruiter may contact you about a current opening and any next steps, including screening through First Advantage where applicable.",
+        "Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.",
       ],
       [
         "Should I send sensitive documents by email?",
@@ -662,7 +661,7 @@ function seed(): Tables {
       ],
       [
         "Can I apply from my phone?",
-        "Yes. You can review openings, select a position, and email recruiting from your phone.",
+        "Yes. The complete application, signature, save/resume, and approved uploads must work on current iPhone and Android browsers.",
       ],
     ].map(([question, answer], i) => ({
       id: uid(),
@@ -863,16 +862,6 @@ function seed(): Tables {
     notifications: [
       {
         id: uid(),
-        user_id: applicantId,
-        title: "Finish your application",
-        body: "You are on step 3 of 6. Pick up where you left off.",
-        category: "application",
-        link: "/portal/application",
-        read_at: null,
-        created_at: daysAgo(1),
-      },
-      {
-        id: uid(),
         user_id: driverId,
         title: "New announcement",
         body: "Winter driving advisory posted.",
@@ -1057,6 +1046,30 @@ export function getDb(): Tables {
         seeding = false;
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
+        for (const app of parsed["applications"] ?? []) {
+          if (app["user_id"] === undefined) app["user_id"] = null;
+          const demoDraft = app["id"] === "a0000000-0000-4000-a000-000000000001" && app["status"] === "draft";
+          if (app["resume_token_hash"] === undefined || (demoDraft && !app["resume_token_hash"])) {
+            app["resume_token_hash"] = demoDraft ? fresh["applications"]![0]!["resume_token_hash"] : null;
+          }
+          if (app["resume_expires_at"] === undefined || (demoDraft && !app["resume_expires_at"])) {
+            app["resume_expires_at"] = demoDraft ? fresh["applications"]![0]!["resume_expires_at"] : null;
+          }
+          if (app["source"] === undefined) app["source"] = "web";
+          if (app["last_saved_at"] === undefined) app["last_saved_at"] = app["updated_at"] ?? null;
+        }
+        for (const name of ["application_employers", "application_documents"]) {
+          for (const row of parsed[name] ?? []) if (row["user_id"] === undefined) row["user_id"] = null;
+        }
+        if (!parsed["site_settings"]!.some((row) => row["key"] === "application_resume_days")) {
+          parsed["site_settings"]!.push(fresh["site_settings"]!.find((row) => row["key"] === "application_resume_days")!);
+        }
+        const faqAnswers: Record<string, string> = {
+          "How do I apply?": "Choose an opening on the Careers page and complete the secure application. You may save and return using your private resume link.",
+          "What happens after I apply?": "Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.",
+          "Can I apply from my phone?": "Yes. The complete application, signature, save/resume, and approved uploads must work on current iPhone and Android browsers.",
+        };
+        for (const faq of parsed["faqs"] ?? []) if (faqAnswers[faq["question"]]) faq["answer"] = faqAnswers[faq["question"]];
         cache = parsed;
         persist();
         return cache;
