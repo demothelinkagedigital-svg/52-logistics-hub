@@ -15,13 +15,14 @@ import {
   TableSkeleton,
 } from "@/components/portal/ui";
 
-const ROLES: AppRole[] = [
+type AssignableRole = Exclude<AppRole, "developer">;
+
+const ROLES: AssignableRole[] = [
   "administrator",
   "recruiter",
   "content_manager",
   "driver",
   "applicant",
-  "developer",
 ];
 
 export const Route = createFileRoute("/_authenticated/portal/admin/")({
@@ -52,7 +53,7 @@ function AdminPage() {
   if (sessionLoading) return <TableSkeleton rows={6} />;
   if (!isAdmin) return <AccessDenied need="administrator" />;
 
-  async function toggleRole(userId: string, role: AppRole, grant: boolean) {
+  async function toggleRole(userId: string, role: AssignableRole, grant: boolean) {
     try {
       await changeRole({ data: { user_id: userId, role, grant } });
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });

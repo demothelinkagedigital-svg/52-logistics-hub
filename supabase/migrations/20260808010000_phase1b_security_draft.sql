@@ -122,6 +122,25 @@ ALTER TABLE public.temporary_developer_grants ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.temporary_developer_grants FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.temporary_developer_grants TO service_role;
 
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+  SELECT public.is_active_user(_user_id)
+     AND EXISTS (
+       SELECT 1 FROM public.user_roles ur
+       WHERE ur.user_id = auth.uid() AND ur.role = _role
+     )
+     AND _role <> 'developer'::public.app_role
+     AND NOT EXISTS (
+       SELECT 1 FROM public.user_roles dev
+       WHERE dev.user_id = auth.uid() AND dev.role = 'developer'::public.app_role
+     );
+$$;
+REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated, service_role;
+
 -- Add only token lifecycle and immutable submission metadata. These are
 -- additive; no legacy user data is dropped. Trusted server code must generate
 -- high-entropy raw tokens and store only SHA-256(token), never the raw token.
@@ -488,9 +507,24 @@ CREATE POLICY fadv_recruiter_update ON public.fadv_handoffs
 -- users can only see/update a limited set of their own profile columns.
 REVOKE ALL ON public.user_roles FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.user_roles TO authenticated;
+CREATE OR REPLACE FUNCTION public.has_developer_role_marker(_user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp AS $$
+  SELECT _user_id = auth.uid() AND EXISTS (
+    SELECT 1 FROM public.user_roles dev
+    WHERE dev.user_id = auth.uid() AND dev.role = 'developer'::public.app_role
+  )
+$$;
+REVOKE ALL ON FUNCTION public.has_developer_role_marker(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_developer_role_marker(uuid) TO authenticated, service_role;
+
 CREATE POLICY roles_self_or_admin_read ON public.user_roles
   FOR SELECT TO authenticated
-  USING (user_id = auth.uid() OR public.has_role(auth.uid(),'administrator'::public.app_role));
+  USING (
+    (user_id = auth.uid() AND role <> 'developer'::public.app_role
+      AND NOT public.has_developer_role_marker(auth.uid()))
+    OR public.has_role(auth.uid(),'administrator'::public.app_role)
+  );
 
 CREATE OR REPLACE FUNCTION public.admin_set_user_role(
   _user_id uuid, _role public.app_role, _grant boolean
@@ -498,7 +532,11 @@ CREATE OR REPLACE FUNCTION public.admin_set_user_role(
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
 BEGIN
   IF NOT public.has_role(auth.uid(),'administrator'::public.app_role)
-     OR _user_id = auth.uid() OR _role = 'developer'::public.app_role THEN
+     OR _user_id = auth.uid() OR _role = 'developer'::public.app_role
+     OR (_grant AND EXISTS (
+       SELECT 1 FROM public.user_roles dev
+       WHERE dev.user_id = _user_id AND dev.role = 'developer'::public.app_role
+     )) THEN
     RETURN false;
   END IF;
   IF _grant THEN
@@ -520,8 +558,8 @@ CREATE OR REPLACE FUNCTION public.has_temporary_developer_scope(_user_id uuid,_s
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, public, pg_temp AS $$
   SELECT public.is_active_user(_user_id) AND _scope = 'public_content'
-    AND EXISTS (SELECT 1 FROM public.user_roles ur
-                WHERE ur.user_id = auth.uid() AND ur.role = 'developer'::public.app_role)
+    AND NOT EXISTS (SELECT 1 FROM public.user_roles ur
+                    WHERE ur.user_id = auth.uid() AND ur.role <> 'developer'::public.app_role)
     AND EXISTS (SELECT 1 FROM public.temporary_developer_grants g
                 WHERE g.user_id = auth.uid() AND g.scope = _scope
                   AND g.revoked_at IS NULL AND now() < g.expires_at);
@@ -541,9 +579,6 @@ BEGIN
                 AND ur.role <> 'developer'::public.app_role) THEN
     RETURN false;
   END IF;
-  INSERT INTO public.user_roles(user_id,role,granted_by)
-    VALUES (_user_id,'developer'::public.app_role,auth.uid())
-    ON CONFLICT (user_id,role) DO NOTHING;
   INSERT INTO public.temporary_developer_grants(user_id,granted_by,purpose,scope,expires_at)
     VALUES (_user_id,auth.uid(),_purpose,'public_content',now()+_duration);
   INSERT INTO public.security_audit_events(actor_id,action,target_type,target_id)
@@ -560,7 +595,7 @@ SET search_path = pg_catalog, public, pg_temp AS $$
 BEGIN
   IF NOT public.has_role(auth.uid(),'administrator'::public.app_role) THEN RETURN false; END IF;
   UPDATE public.temporary_developer_grants SET revoked_at = now()
-    WHERE user_id = _user_id AND revoked_at IS NULL AND expires_at > now();
+    WHERE user_id = _user_id AND revoked_at IS NULL;
   DELETE FROM public.user_roles WHERE user_id = _user_id AND role = 'developer'::public.app_role;
   INSERT INTO public.security_audit_events(actor_id,action,target_type,target_id)
     VALUES (auth.uid(),'temporary_developer_access_revoked','user',_user_id::text);
@@ -569,6 +604,40 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.revoke_temporary_developer_access(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.revoke_temporary_developer_access(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.cleanup_expired_temporary_developer_access()
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, public, pg_temp AS $$
+DECLARE removed_roles integer;
+BEGIN
+  WITH expired AS (
+    UPDATE public.temporary_developer_grants
+    SET revoked_at = expires_at
+    WHERE revoked_at IS NULL AND expires_at <= now()
+    RETURNING user_id
+  )
+  INSERT INTO public.security_audit_events(actor_id,action,target_type,target_id)
+    SELECT NULL,'temporary_developer_access_expired','user',expired_users.user_id::text
+    FROM (SELECT DISTINCT user_id FROM expired) expired_users;
+
+  WITH removed AS (
+    DELETE FROM public.user_roles ur
+    WHERE ur.role = 'developer'::public.app_role
+      AND NOT EXISTS (
+        SELECT 1 FROM public.temporary_developer_grants g
+        WHERE g.user_id = ur.user_id AND g.revoked_at IS NULL AND now() < g.expires_at
+      )
+    RETURNING ur.user_id
+  )
+  INSERT INTO public.security_audit_events(actor_id,action,target_type,target_id)
+    SELECT NULL,'temporary_developer_role_marker_cleaned','user',removed.user_id::text
+    FROM removed;
+  GET DIAGNOSTICS removed_roles = ROW_COUNT;
+  RETURN removed_roles;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.cleanup_expired_temporary_developer_access() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cleanup_expired_temporary_developer_access() TO service_role;
 
 REVOKE ALL ON public.profiles FROM PUBLIC, anon, authenticated;
 GRANT SELECT (id,email,full_name,preferred_name,phone,title,avatar_url,status,created_at,updated_at)
@@ -738,8 +807,6 @@ GRANT INSERT, UPDATE, DELETE ON public.academy_modules, public.handbook_sections
 GRANT SELECT ON public.announcement_acknowledgements, public.safety_acknowledgements,
   public.safety_meeting_assignments, public.handbook_signatures TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.safety_meeting_assignments TO authenticated;
-GRANT INSERT ON public.announcement_acknowledgements, public.safety_acknowledgements,
-  public.handbook_signatures TO authenticated;
 GRANT SELECT ON public.media_assets TO authenticated;
 
 CREATE POLICY academy_driver_read ON public.academy_modules FOR SELECT TO authenticated
@@ -792,42 +859,15 @@ CREATE POLICY media_content_read ON public.media_assets FOR SELECT TO authentica
 CREATE POLICY media_content_manage ON public.media_assets FOR ALL TO authenticated
   USING (public.is_content_staff(auth.uid())) WITH CHECK (public.is_content_staff(auth.uid()));
 
--- Acknowledgements are append-only. Triggers overwrite caller-provided actor and
--- timestamps. Assignment/scoring mutation is intentionally server-only pending
--- scoped task-completion RPCs.
+-- Acknowledgements and signatures are read-only to clients. Trusted, identity-bound
+-- server RPCs are required to record actor, signed version, and evidence atomically.
+-- Assignment and progress mutations remain server-only pending the Academy RPC phase.
 CREATE POLICY announcement_ack_self_read ON public.announcement_acknowledgements
   FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY announcement_ack_self_insert ON public.announcement_acknowledgements
-  FOR INSERT TO authenticated WITH CHECK (
-    user_id = auth.uid()
-    AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
-    AND EXISTS (SELECT 1 FROM public.announcements a
-      WHERE a.id = announcement_id AND a.published AND a.status = 'published'
-        AND (a.publish_at IS NULL OR a.publish_at <= now())
-        AND (a.expires_at IS NULL OR a.expires_at > now())
-        AND a.audience IN ('driver','drivers','all_drivers'))
-  );
 CREATE POLICY safety_ack_self_read ON public.safety_acknowledgements
   FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY safety_ack_self_insert ON public.safety_acknowledgements
-  FOR INSERT TO authenticated WITH CHECK (
-    user_id = auth.uid()
-    AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
-    AND EXISTS (SELECT 1 FROM public.safety_resources r
-      WHERE r.id = resource_id AND r.published)
-  );
 CREATE POLICY handbook_signatures_self_read ON public.handbook_signatures
   FOR SELECT TO authenticated USING (user_id = auth.uid());
-CREATE POLICY handbook_signatures_self_insert ON public.handbook_signatures
-  FOR INSERT TO authenticated WITH CHECK (
-    user_id = auth.uid()
-    AND public.has_role(auth.uid(),'driver'::public.app_role)
-    AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
-    AND EXISTS (SELECT 1 FROM public.handbook_versions h
-      WHERE h.id = version_id AND h.published AND h.requires_signature)
-  );
 CREATE POLICY meeting_assignment_self_read ON public.safety_meeting_assignments
   FOR SELECT TO authenticated USING (
     user_id = auth.uid() AND public.has_role(auth.uid(),'driver'::public.app_role)
@@ -901,9 +941,10 @@ CREATE POLICY lms_attempts_self_read ON public.lms_quiz_attempts
     AND EXISTS (SELECT 1 FROM public.drivers d WHERE d.user_id = auth.uid() AND d.status = 'active')
   );
 
--- Token-only applicant APIs. The database issues high-entropy tokens and stores
--- only SHA-256 hashes. API/edge rate limiting and secure email delivery remain
--- mandatory; there is no direct anonymous table privilege or object-storage policy.
+-- Token-only applicant RPCs are service-role-only. The trusted server API must
+-- enforce shared rate limits, generic token failures, and raw-token log redaction
+-- before invoking them; no direct anonymous table or RPC access is granted.
+-- See the Phase 1B server contract for endpoint payload mapping and rate-limit policy.
 CREATE OR REPLACE FUNCTION public.start_public_application(_job_id uuid DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, extensions, pg_temp AS $$
@@ -1268,7 +1309,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.submit_application_draft(_token text,_signature_name text)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
-DECLARE app public.applications;
+DECLARE app public.applications; gap_reasons text[] := '{}';
 BEGIN
   IF _token IS NULL OR length(_token) < 32 OR length(_token) > 512
      OR _signature_name IS NULL OR length(btrim(_signature_name)) NOT BETWEEN 2 AND 120 THEN
@@ -1290,7 +1331,10 @@ BEGIN
      OR app.can_perform_duties_with_or_without_accommodation IS NULL
      OR app.medical_card_status IS NULL
      OR (app.medical_card_status = 'current' AND
-         (app.medical_card_expiration_month IS NULL OR app.medical_card_expiration_year IS NULL))
+         (app.medical_card_expiration_month IS NULL
+          OR app.medical_card_expiration_month NOT BETWEEN 1 AND 12
+          OR app.medical_card_expiration_year IS NULL
+          OR app.medical_card_expiration_year NOT BETWEEN 2000 AND 2200))
      OR app.agrees_to_comply IS DISTINCT FROM true
      OR app.preferred_contact_method IS NULL OR app.consent_electronic_records IS DISTINCT FROM true
      OR lower(btrim(_signature_name)) NOT IN (
@@ -1304,8 +1348,38 @@ BEGIN
          AND e.permission_to_contact IS NOT NULL AND e.reason_for_leaving IS NOT NULL) THEN
     RETURN NULL;
   END IF;
+  IF app.is_18_or_older IS DISTINCT FROM true THEN
+    gap_reasons := array_append(gap_reasons,'Applicant did not confirm they are at least 18 years old.');
+  END IF;
+  IF app.authorized_to_work IS DISTINCT FROM true THEN
+    gap_reasons := array_append(gap_reasons,'Applicant did not confirm authorization to work in the United States.');
+  END IF;
+  IF app.cdl_status IS DISTINCT FROM 'valid_cdl' THEN
+    gap_reasons := array_append(gap_reasons,'CDL status: ' || coalesce(app.cdl_status,'not provided') || '.');
+  END IF;
+  IF app.commercial_experience_years = 0 THEN
+    gap_reasons := array_append(gap_reasons,'No commercial driving experience reported.');
+  END IF;
+  IF app.tractor_trailer_experience IS FALSE THEN
+    gap_reasons := array_append(gap_reasons,'No tractor-trailer experience reported.');
+  END IF;
+  IF app.linehaul_pd_experience IS FALSE THEN
+    gap_reasons := array_append(gap_reasons,'No linehaul or pickup-and-delivery experience reported.');
+  END IF;
+  IF app.can_perform_duties_with_or_without_accommodation IS DISTINCT FROM true THEN
+    gap_reasons := array_append(gap_reasons,'Applicant indicated they may be unable to perform essential job functions with or without reasonable accommodation.');
+  END IF;
+  IF app.medical_card_status IS DISTINCT FROM 'current' THEN
+    gap_reasons := array_append(gap_reasons,'DOT medical card status: ' || coalesce(app.medical_card_status,'not provided') || '.');
+  ELSIF make_date(app.medical_card_expiration_year,app.medical_card_expiration_month,1)
+        + interval '1 month' - interval '1 day' < current_date THEN
+    gap_reasons := array_append(gap_reasons,'DOT medical card expiration date has passed.');
+  END IF;
+
   UPDATE public.applications a
   SET signature_name = btrim(_signature_name), signature_signed_at = now(), certified = true,
+      qualification_gap = cardinality(gap_reasons) > 0,
+      qualification_gap_reasons = gap_reasons,
       current_step = 6, status = 'submitted'::public.application_status,
       recruiting_status = 'new', submitted_at = now(), resume_consumed_at = now(),
       submitted_response_snapshot = jsonb_build_object(
@@ -1324,7 +1398,7 @@ BEGIN
         'medical_card_expiration_year',a.medical_card_expiration_year,'agrees_to_comply',a.agrees_to_comply,
         'consent_electronic_records',a.consent_electronic_records,'signature_name',btrim(_signature_name),
         'signature_signed_at',now(),'certified',true,'how_did_you_hear',a.how_did_you_hear,
-        'qualification_gap',a.qualification_gap,'qualification_gap_reasons',a.qualification_gap_reasons,
+        'qualification_gap',cardinality(gap_reasons) > 0,'qualification_gap_reasons',gap_reasons,
         'employers',coalesce((SELECT jsonb_agg(jsonb_build_object(
           'employer_name',e.employer_name,'position_held',e.position_held,'city',e.city,
           'state',e.state,'phone',e.phone,'start_date',e.start_date,'end_date',e.end_date,
@@ -1339,26 +1413,26 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.start_public_application(uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.resume_application(text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.save_application_draft(text,jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.save_application_employers(text,jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.start_public_application(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.resume_application(text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.save_application_draft(text,jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.save_application_employers(text,jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.create_application_upload_target(text,text,text,text,bigint) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.record_application_document(text,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.delete_application_document(text,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.complete_application_document_deletion(text,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.revoke_application_resume_token(text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.submit_application_draft(text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.submit_application_draft(text,text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.revoke_application_resume_token(text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.start_public_application(uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.resume_application(text) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.save_application_draft(text,jsonb) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.save_application_employers(text,jsonb) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.start_public_application(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.resume_application(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.save_application_draft(text,jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.save_application_employers(text,jsonb) TO service_role;
 GRANT EXECUTE ON FUNCTION public.create_application_upload_target(text,text,text,text,bigint) TO service_role;
 GRANT EXECUTE ON FUNCTION public.record_application_document(text,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.delete_application_document(text,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.complete_application_document_deletion(text,uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.submit_application_draft(text,text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_application_draft(text,text) TO service_role;
 
 -- Submitted response snapshot is immutable. Workflow-only fields remain
 -- editable by recruiting staff; response corrections require a separately
