@@ -171,7 +171,7 @@ BEGIN
   END IF;
   IF NOT public.save_application_employers(
        'phase1b-valid-token-a-0123456789abcdef',
-       '[{"employer_name":"Synthetic Carrier","position_held":"Driver","start_date":"2024-01-01","reason_for_leaving":"Seeking a new opportunity","current_employer":false,"commercial_driving_relevant":true,"permission_to_contact":false}]'::jsonb) THEN
+       '[{"employer_name":"Synthetic Carrier","position_held":"Driver","start_date":"2024-01-01","reason_for_leaving":"Seeking a new opportunity","current_employer":false,"commercial_driving_relevant":true,"permission_to_contact":false},{"employer_name":"Synthetic Carrier Two","position_held":"Driver","start_date":"2022-01-01","end_date":"2023-12-31","reason_for_leaving":"Moved to another opportunity","current_employer":false,"commercial_driving_relevant":true,"permission_to_contact":false}]'::jsonb) THEN
     RAISE EXCEPTION 'token-scoped employment history save failed';
   END IF;
   IF public.submit_application_draft('phase1b-valid-token-a-0123456789abcdef','') IS NOT NULL THEN
@@ -337,7 +337,7 @@ BEGIN
   IF (SELECT submitted_response_snapshot ? 'employers'
       FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') IS DISTINCT FROM true
      OR (SELECT jsonb_array_length(submitted_response_snapshot->'employers')
-         FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') <> 1 THEN
+         FROM public.applications WHERE id='11111111-1111-4111-8111-111111111111') <> 2 THEN
     RAISE EXCEPTION 'submission snapshot omitted employment history';
   END IF;
   BEGIN

@@ -1102,7 +1102,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS application_documents_storage_path_key
 CREATE OR REPLACE FUNCTION public.save_application_employers(_token text,_employers jsonb)
 RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
-DECLARE app_id uuid; item jsonb; employer public.application_employers;
+DECLARE app_id uuid; item jsonb; employer public.application_employers; employer_order integer;
 BEGIN
   IF _token IS NULL OR length(_token) < 32 OR length(_token) > 512
      OR _employers IS NULL OR jsonb_typeof(_employers) <> 'array'
@@ -1131,7 +1131,10 @@ BEGIN
     END IF;
   END LOOP;
   DELETE FROM public.application_employers WHERE application_id = app_id;
-  FOR item IN SELECT value FROM jsonb_array_elements(_employers) LOOP
+  FOR item, employer_order IN
+    SELECT value, ordinality::integer
+    FROM jsonb_array_elements(_employers) WITH ORDINALITY AS entries(value,ordinality)
+  LOOP
     employer := jsonb_populate_record(NULL::public.application_employers,item);
     INSERT INTO public.application_employers(
       application_id,employer_name,position_held,city,state,phone,start_date,end_date,
@@ -1141,7 +1144,7 @@ BEGIN
       employer.phone,employer.start_date,employer.end_date,employer.reason_for_leaving,
       coalesce(employer.was_dot_regulated,true),employer.current_employer,
       employer.commercial_driving_relevant,employer.permission_to_contact,
-      employer.equipment_operated,0);
+      employer.equipment_operated,employer_order);
   END LOOP;
   RETURN true;
 EXCEPTION WHEN others THEN
