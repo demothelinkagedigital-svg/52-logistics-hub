@@ -82,8 +82,6 @@ export const applicationDraftSchema = z.object({
   qualification_gap: z.boolean().optional(),
   qualification_gap_reasons: z.array(z.string().max(160)).optional(),
 });
-export type ApplicationDraft = z.infer<typeof applicationDraftSchema>;
-
 export const portalDraftSchema = applicationDraftSchema.omit({ signature_signed_at: true });
 
 export const applicationAccessSchema = z.object({
@@ -146,7 +144,3 @@ export const ESIGN_STATUSES = [
   "declined",
   "voided",
 ] as const;
-
-export function humanize(value: string) {
-  return value.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
-}

@@ -9,6 +9,7 @@ import { startPublicApplication } from "@/lib/public-application.functions";
 const jobsQuery = queryOptions({ queryKey: ["public-jobs"], queryFn: () => getPublicJobs(), staleTime: 60_000 });
 
 export const Route = createFileRoute("/_site/apply/")({
+  ssr: false,
   validateSearch: (search: Record<string, unknown>): { position?: string } =>
     typeof search["position"] === "string" ? { position: search["position"] } : {},
   loader: ({ context }) => context.queryClient.ensureQueryData(jobsQuery),

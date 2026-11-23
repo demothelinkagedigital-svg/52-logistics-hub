@@ -63,8 +63,12 @@ assert.deepEqual(app["schedule_availability"], ["Weekdays"]);
 assert.equal(app["start_availability"], "Two weeks");
 assert.equal(app["medical_card_status"], "current");
 assert.equal(app["signature_signed_at"], app["submitted_at"]);
-const summary = await getApplicationByToken({ data: { token } });
-assert.deepEqual(summary, { reference: first.reference_code, position: null, submitted_at: app["submitted_at"], status: "submitted" });
+for (const status of ["submitted", "under_review", "interview", "hired", "rejected", "archived", "unknown_status"]) {
+  app["status"] = status;
+  const summary = await getApplicationByToken({ data: { token } });
+  assert.deepEqual(summary, { reference: first.reference_code, position: null, submitted_at: app["submitted_at"], label: "Application received" });
+  assert.equal("status" in summary, false);
+}
 await assert.rejects(saveApplicationDraftByToken({ data: { token, values: { first_name: "Changed" } } }), /locked/);
 
 const secondHash = await hashToken(second.resume_token);

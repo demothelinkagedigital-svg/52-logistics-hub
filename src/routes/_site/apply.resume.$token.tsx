@@ -6,6 +6,7 @@ import { siteBootstrapQuery } from "../_site";
 import { getPublicJobs } from "@/lib/public-content.functions";
 
 export const Route = createFileRoute("/_site/apply/resume/$token")({
+  ssr: false,
   loader: async ({ params, context }) => {
     const jobs = await getPublicJobs();
     context.queryClient.setQueryData(["public-jobs"], jobs);

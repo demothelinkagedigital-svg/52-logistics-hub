@@ -74,10 +74,9 @@ export const getApplicationByToken = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => tokenSchema.parse(input))
   .handler(async ({ data }) => {
     const application = await verifiedApplication(data.token);
-    if (application["status"] === "submitted") {
-      return { reference: application["reference_code"], position: application["position_title"], submitted_at: application["submitted_at"], status: application["status"] };
+    if (application["status"] !== "draft" && application["status"] !== "corrections_requested") {
+      return { reference: application["reference_code"], position: application["position_title"], submitted_at: application["submitted_at"], label: "Application received" };
     }
-    requireEditable(application);
     const { resume_token_hash: _hash, ...safeApplication } = application;
     return structuredClone({
       application: safeApplication,

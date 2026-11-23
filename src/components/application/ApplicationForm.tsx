@@ -733,7 +733,12 @@ export function ApplicationForm({ token }: { token: string }) {
       });
       await saveEmp({ data: { token, employers } });
       const result = await submit({ data: { token, signature_name: signature.trim() } });
-      queryClient.setQueryData(["public-application", token], result);
+      queryClient.setQueryData(["public-application", token], {
+        reference: result.reference,
+        position: result.position,
+        submitted_at: result.submitted_at,
+        label: "Application received",
+      });
       toast.success("Application submitted for review");
     } catch (e) {
       toast.error("Could not submit your application. Please try again.");
@@ -755,7 +760,7 @@ export function ApplicationForm({ token }: { token: string }) {
   if (showConfirmation) {
     return (
       <div className="mx-auto w-full max-w-3xl">
-        <PortalHeading eyebrow="Recruiting" title="Application submitted" />
+        <PortalHeading eyebrow="Recruiting" title={submitted.label} />
         <Panel title="Thank you for applying">
           <div className="space-y-4 text-sm">
             <p>
