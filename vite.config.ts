@@ -5,8 +5,41 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { loadEnv } from "vite";
 
 export default defineConfig({
+  plugins: [
+    {
+      name: "supabase-public-env",
+      config(_config, { mode }) {
+        const env = loadEnv(mode, process.cwd(), "NEXT_PUBLIC_SUPABASE_");
+        const key = env["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"];
+        if (key && !key.startsWith("sb_publishable_")) {
+          let role: unknown;
+          try {
+            role = JSON.parse(Buffer.from(key.split(".")[1] ?? "", "base64url").toString()).role;
+          } catch {
+            throw new Error(
+              "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY must be a publishable or anon key.",
+            );
+          }
+          if (role !== "anon") {
+            throw new Error(
+              "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY must be a publishable or anon key.",
+            );
+          }
+        }
+        return {
+          define: {
+            "import.meta.env.NEXT_PUBLIC_SUPABASE_URL": JSON.stringify(
+              env["NEXT_PUBLIC_SUPABASE_URL"] ?? "",
+            ),
+            "import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(key ?? ""),
+          },
+        };
+      },
+    },
+  ],
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
