@@ -576,8 +576,6 @@ CREATE POLICY profiles_self_read ON public.profiles
   FOR SELECT TO authenticated USING (id = auth.uid() AND public.is_active_user(auth.uid()));
 CREATE POLICY profiles_admin_read ON public.profiles
   FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'administrator'::public.app_role));
-CREATE POLICY profiles_admin_read ON public.profiles
-  FOR SELECT TO authenticated USING (public.has_role(auth.uid(),'administrator'::public.app_role));
 CREATE POLICY profiles_self_update ON public.profiles
   FOR UPDATE TO authenticated
   USING (id = auth.uid() AND public.is_active_user(auth.uid()))
@@ -974,6 +972,11 @@ BEGIN
     'certified',a.certified,'qualification_gap',a.qualification_gap,
     'qualification_gap_reasons',a.qualification_gap_reasons,
     'how_did_you_hear',a.how_did_you_hear,
+    'documents',coalesce((SELECT jsonb_agg(jsonb_build_object(
+      'id',d.id,'doc_type',d.doc_type,'file_name',d.file_name,
+      'mime_type',d.mime_type,'size_bytes',d.size_bytes)
+      ORDER BY d.created_at)
+      FROM public.application_documents d WHERE d.application_id=a.id), '[]'::jsonb),
     'employers',coalesce((SELECT jsonb_agg(jsonb_build_object(
       'employer_name',e.employer_name,'position_held',e.position_held,
       'city',e.city,'state',e.state,'phone',e.phone,'start_date',e.start_date,
@@ -1024,6 +1027,10 @@ BEGIN
   FOR UPDATE;
   IF app_id IS NULL THEN RETURN false; END IF;
   SELECT jsonb_populate_record(NULL::public.applications, _patch) INTO patched;
+  IF _patch ? 'job_id' AND NOT EXISTS (
+    SELECT 1 FROM public.jobs j
+    WHERE j.id = patched.job_id AND j.published AND j.archived_at IS NULL AND j.status = 'open'
+  ) THEN RETURN false; END IF;
   IF (_patch ? 'current_step' AND patched.current_step NOT BETWEEN 1 AND 6)
      OR (_patch ? 'preferred_name' AND length(patched.preferred_name) > 80)
      OR (_patch ? 'preferred_contact_method' AND patched.preferred_contact_method NOT IN ('email','phone','text'))
@@ -1150,9 +1157,9 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.create_application_upload_target(
   _token text,_doc_type text,_file_name text,_mime_type text,_size_bytes bigint
-) RETURNS text LANGUAGE plpgsql SECURITY DEFINER
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, public, extensions, pg_temp AS $$
-DECLARE app public.applications; suffix text; object_path text;
+DECLARE app public.applications; suffix text; object_path text; intent_id uuid; intent_expires_at timestamptz;
 BEGIN
   IF _token IS NULL OR length(_token) < 32 OR length(_token) > 512
      OR _doc_type IS NULL OR _doc_type NOT IN ('medical_card','resume')
@@ -1170,10 +1177,13 @@ BEGIN
   FOR UPDATE;
   IF NOT FOUND THEN RETURN NULL; END IF;
   object_path := 'applicant/' || encode(extensions.gen_random_bytes(32),'hex') || '.' || suffix;
+  intent_expires_at := now()+interval '10 minutes';
   INSERT INTO public.application_upload_intents(
     application_id,doc_type,file_name,mime_type,expected_size_bytes,storage_path,expires_at
-  ) VALUES(app.id,_doc_type,_file_name,_mime_type,_size_bytes,object_path,now()+interval '10 minutes');
-  RETURN object_path;
+  ) VALUES(app.id,_doc_type,_file_name,_mime_type,_size_bytes,object_path,intent_expires_at)
+  RETURNING id INTO intent_id;
+  RETURN jsonb_build_object('intent_id',intent_id,'storage_path',object_path,
+                            'expires_at',intent_expires_at);
 END;
 $$;
 
@@ -1209,19 +1219,20 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.delete_application_document(_token text,_document_id uuid)
-RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp AS $$
-DECLARE app_id uuid;
+RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, extensions, pg_temp AS $$
+DECLARE app_id uuid; object_path text;
 BEGIN
-  IF _token IS NULL OR length(_token) < 32 OR length(_token) > 512 THEN RETURN false; END IF;
+  IF _token IS NULL OR length(_token) < 32 OR length(_token) > 512 THEN RETURN NULL; END IF;
   SELECT id INTO app_id FROM public.applications
   WHERE resume_token_hash = encode(extensions.digest(convert_to(_token,'UTF8'),'sha256'),'hex')
     AND resume_expires_at > now() AND resume_revoked_at IS NULL
     AND resume_consumed_at IS NULL AND status = 'draft'::public.application_status
   FOR UPDATE;
-  IF app_id IS NULL THEN RETURN false; END IF;
-  DELETE FROM public.application_documents WHERE id = _document_id AND application_id = app_id;
-  RETURN FOUND;
+  IF app_id IS NULL THEN RETURN NULL; END IF;
+  DELETE FROM public.application_documents WHERE id = _document_id AND application_id = app_id
+  RETURNING storage_path INTO object_path;
+  RETURN object_path;
 END;
 $$;
 
@@ -1265,7 +1276,14 @@ BEGIN
         'medical_card_expiration_year',a.medical_card_expiration_year,'agrees_to_comply',a.agrees_to_comply,
         'consent_electronic_records',a.consent_electronic_records,'signature_name',btrim(_signature_name),
         'signature_signed_at',now(),'certified',true,'how_did_you_hear',a.how_did_you_hear,
-        'qualification_gap',a.qualification_gap,'qualification_gap_reasons',a.qualification_gap_reasons),
+        'qualification_gap',a.qualification_gap,'qualification_gap_reasons',a.qualification_gap_reasons,
+        'employers',coalesce((SELECT jsonb_agg(jsonb_build_object(
+          'employer_name',e.employer_name,'position_held',e.position_held,'city',e.city,
+          'state',e.state,'phone',e.phone,'start_date',e.start_date,'end_date',e.end_date,
+          'reason_for_leaving',e.reason_for_leaving,'was_dot_regulated',e.was_dot_regulated,
+          'current_employer',e.current_employer,'commercial_driving_relevant',e.commercial_driving_relevant,
+          'permission_to_contact',e.permission_to_contact,'equipment_operated',e.equipment_operated
+        ) ORDER BY e.sort_order) FROM public.application_employers e WHERE e.application_id=a.id),'[]'::jsonb)),
       updated_at = now()
   WHERE a.id = app.id;
   RETURN jsonb_build_object('reference_code',app.reference_code,'position_title',app.position_title,
@@ -1277,16 +1295,16 @@ REVOKE ALL ON FUNCTION public.start_public_application(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.resume_application(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.save_application_draft(text,jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.save_application_employers(text,jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.create_application_upload_target(text,text,text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.record_application_document(text,text,text,text,text,bigint) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.delete_application_document(text,uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.create_application_upload_target(text,text,text,text,bigint) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.record_application_document(text,uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.delete_application_document(text,uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.submit_application_draft(text,text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.start_public_application(uuid) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.resume_application(text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.save_application_draft(text,jsonb) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.save_application_employers(text,jsonb) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.create_application_upload_target(text,text,text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.record_application_document(text,text,text,text,text,bigint) TO service_role;
+GRANT EXECUTE ON FUNCTION public.create_application_upload_target(text,text,text,text,bigint) TO service_role;
+GRANT EXECUTE ON FUNCTION public.record_application_document(text,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.delete_application_document(text,uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.submit_application_draft(text,text) TO anon, authenticated;
 
