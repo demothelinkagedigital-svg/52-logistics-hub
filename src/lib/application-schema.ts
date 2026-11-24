@@ -84,6 +84,11 @@ export const applicationDraftSchema = z.object({
 });
 export const portalDraftSchema = applicationDraftSchema.omit({ signature_signed_at: true });
 
+export const applicationAssignmentSchema = z.object({
+  assigned_recruiter_id: z.string().uuid().nullable(),
+});
+export type ApplicationAssignment = z.infer<typeof applicationAssignmentSchema>;
+
 export const applicationAccessSchema = z.object({
   user_id: z.string().uuid().nullable(),
   resume_token_hash: z.string().nullable(),

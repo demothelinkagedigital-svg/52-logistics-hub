@@ -14,6 +14,7 @@ import {
   saveFirstAdvantageHandoff,
   saveEsignRecord,
   deleteEsignRecord,
+  assignApplicationRecruiter,
 } from "@/lib/recruiting.functions";
 import {
   APPLICATION_STATUS_LABELS,
@@ -100,10 +101,12 @@ type EsignForm = {
 
 function ApplicantDetail() {
   const { id } = Route.useParams();
-  const { isRecruiter, user, isLoading: sessionLoading } = useSession();
+  const { isRecruiter, user, roles, isLoading: sessionLoading } = useSession();
+  const isAdministrator = roles.includes("administrator");
   const queryClient = useQueryClient();
   const fetchDetail = useServerFn(getApplicationDetail);
   const setStatus = useServerFn(updateApplicationStatus);
+  const assignRecruiter = useServerFn(assignApplicationRecruiter);
   const addNote = useServerFn(addApplicationNote);
   const requestFix = useServerFn(requestCorrections);
   const verify = useServerFn(verifyDocument);
@@ -201,6 +204,11 @@ function ApplicantDetail() {
   const shouldSuggestInvitationStatus =
     APPLICATION_STATUS_ORDER.indexOf(statusForOrder as (typeof APPLICATION_STATUS_ORDER)[number]) <
     APPLICATION_STATUS_ORDER.indexOf("fadv_invitation_sent");
+  const invalidEsignDate = Boolean(
+    esignForm.sent_date &&
+    esignForm.completion_date &&
+    esignForm.completion_date < esignForm.sent_date,
+  );
 
   return (
     <div>
@@ -219,18 +227,69 @@ function ApplicantDetail() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          {a.qualification_gap ? (
-            <Panel title="Qualification review flag">
-              <p className="text-sm font-medium">
-                This application has one or more qualification gaps for human review.
-              </p>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                {(a.qualification_gap_reasons ?? []).map((reason: string) => (
+          <Panel title="Qualification summary">
+            <p className="text-sm font-medium">For human review. No automatic decisions.</p>
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field
+                label="CDL"
+                value={[a.cdl_status, a.cdl_class, a.cdl_state].filter(Boolean).join(" · ")}
+              />
+              <Field
+                label="Commercial experience"
+                value={
+                  a.commercial_experience_years == null
+                    ? null
+                    : `${a.commercial_experience_years} years`
+                }
+              />
+              <Field
+                label="Tractor-trailer experience"
+                value={displayValue(a.tractor_trailer_experience)}
+              />
+              <Field
+                label="Linehaul / P&D experience"
+                value={displayValue(a.linehaul_pd_experience)}
+              />
+              <Field label="Medical card status" value={displayValue(a.medical_card_status)} />
+              <Field
+                label="Medical card expiry"
+                value={
+                  a.medical_card_expiration_month && a.medical_card_expiration_year
+                    ? `${a.medical_card_expiration_month}/${a.medical_card_expiration_year}`
+                    : null
+                }
+              />
+              <Field label="Candidate schedule" value={displayValue(a.schedule_availability)} />
+              <Field
+                label="Opening schedule"
+                value={
+                  data.opening
+                    ? `${data.opening.days ?? ""}${data.opening.days && data.opening.schedule ? " · " : ""}${data.opening.schedule ?? ""}`
+                    : "No opening selected"
+                }
+              />
+              <Field
+                label="Schedule comparison"
+                value={
+                  !data.opening
+                    ? "No opening selected"
+                    : a.schedule_availability?.includes(data.opening.days)
+                      ? "Candidate availability includes the opening days"
+                      : "Candidate availability does not list the opening days"
+                }
+              />
+            </dl>
+            <p className="mt-4 text-sm font-semibold">Gaps</p>
+            {a.qualification_gap_reasons?.length ? (
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {a.qualification_gap_reasons.map((reason: string) => (
                   <li key={reason}>{reason}</li>
                 ))}
               </ul>
-            </Panel>
-          ) : null}
+            ) : (
+              <p className="mt-1 text-sm text-muted-foreground">No gaps listed.</p>
+            )}
+          </Panel>
           <Panel title="Applicant information">
             <dl className="grid gap-4 sm:grid-cols-3">
               <Field label="Preferred name" value={displayValue(a.preferred_name)} />
@@ -690,10 +749,15 @@ function ApplicantDetail() {
                 className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
               />
             </label>
+            {invalidEsignDate ? (
+              <p className="mt-2 text-sm text-destructive" role="alert">
+                Completion date cannot be earlier than sent date.
+              </p>
+            ) : null}
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
-                disabled={busy || !esignForm.sender_id}
+                disabled={busy || !esignForm.sender_id || invalidEsignDate}
                 onClick={() =>
                   void run(
                     async () => {
@@ -773,6 +837,30 @@ function ApplicantDetail() {
         <div className="space-y-6">
           <Panel title="Review actions">
             <label className="block text-[11px] font-semibold uppercase text-muted-foreground">
+              Assigned recruiter
+            </label>
+            <select
+              value={a.assigned_recruiter_id ?? ""}
+              disabled={busy}
+              onChange={(e) =>
+                void run(
+                  () =>
+                    assignRecruiter({
+                      data: { id, assigned_recruiter_id: e.target.value || null },
+                    }),
+                  "Recruiter assignment updated",
+                )
+              }
+              className="mb-4 mt-1.5 w-full rounded-sm border border-input bg-background px-3 py-2.5 text-sm"
+            >
+              <option value="">Unassigned</option>
+              {data.recruiters.map((recruiter) => (
+                <option key={recruiter.id} value={recruiter.id}>
+                  {recruiter.full_name}
+                </option>
+              ))}
+            </select>
+            <label className="block text-[11px] font-semibold uppercase text-muted-foreground">
               Change status
             </label>
             <select
@@ -795,11 +883,21 @@ function ApplicantDetail() {
               }
               className="mt-1.5 w-full rounded-sm border border-input bg-background px-3 py-2.5 text-sm"
             >
-              {APPLICATION_STATUS_ORDER.map((status) => (
-                <option key={status} value={status}>
-                  {APPLICATION_STATUS_LABELS[status]}
-                </option>
-              ))}
+              {APPLICATION_STATUS_ORDER.map((status) => {
+                const managementOnly =
+                  ["hired", "rejected", "archived"].includes(status) && !isAdministrator;
+                return (
+                  <option
+                    key={status}
+                    value={status}
+                    disabled={managementOnly}
+                    title={managementOnly ? "Management only" : undefined}
+                  >
+                    {APPLICATION_STATUS_LABELS[status]}
+                    {managementOnly ? " — Management only" : ""}
+                  </option>
+                );
+              })}
             </select>
             <textarea
               rows={2}

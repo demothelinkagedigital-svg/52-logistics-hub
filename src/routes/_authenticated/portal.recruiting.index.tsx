@@ -2,8 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
+import { toast } from "sonner";
 import { Users, Inbox, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { listApplications, getRecruitingStats } from "@/lib/recruiting.functions";
+import {
+  listApplications,
+  getRecruitingStats,
+  getRecruitingFilterOptions,
+  exportRecruitingApplications,
+} from "@/lib/recruiting.functions";
 import {
   APPLICATION_STATUS_LABELS,
   APPLICATION_STATUS_ORDER,
@@ -40,22 +46,35 @@ export const Route = createFileRoute("/_authenticated/portal/recruiting/")({
 
 function RecruitingPage() {
   const navigate = useNavigate();
-  const { isRecruiter, isLoading: sessionLoading } = useSession();
+  const { roles, isLoading: sessionLoading } = useSession();
+  const canRecruit = roles.includes("recruiter") || roles.includes("administrator");
   const fetchApps = useServerFn(listApplications);
   const fetchStats = useServerFn(getRecruitingStats);
+  const fetchOptions = useServerFn(getRecruitingFilterOptions);
+  const exportApps = useServerFn(exportRecruitingApplications);
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
+  const [openingId, setOpeningId] = useState("all");
+  const [assignedRecruiterId, setAssignedRecruiterId] = useState("all");
+  const [submittedFrom, setSubmittedFrom] = useState("");
+  const [submittedTo, setSubmittedTo] = useState("");
+  const [missingItemsOnly, setMissingItemsOnly] = useState(false);
   const [page, setPage] = useState(0);
 
   const apps = useQuery({
     queryKey: ["applications"],
     queryFn: () => fetchApps(),
-    enabled: isRecruiter,
+    enabled: canRecruit,
   });
   const stats = useQuery({
     queryKey: ["recruiting-stats"],
     queryFn: () => fetchStats(),
-    enabled: isRecruiter,
+    enabled: canRecruit,
+  });
+  const options = useQuery({
+    queryKey: ["recruiting-filter-options"],
+    queryFn: () => fetchOptions(),
+    enabled: canRecruit,
   });
 
   const filtered = useMemo(() => {
@@ -69,19 +88,68 @@ function RecruitingPage() {
           : a.status !== status)
       )
         return false;
+      if (openingId !== "all" && a.job_id !== openingId) return false;
+      if (assignedRecruiterId === "unassigned" && a.assigned_recruiter_id) return false;
+      if (
+        assignedRecruiterId !== "all" &&
+        assignedRecruiterId !== "unassigned" &&
+        a.assigned_recruiter_id !== assignedRecruiterId
+      )
+        return false;
+      const submittedDate = a.submitted_at?.slice(0, 10) ?? "";
+      if (submittedFrom && (!submittedDate || submittedDate < submittedFrom)) return false;
+      if (submittedTo && (!submittedDate || submittedDate > submittedTo)) return false;
+      if (missingItemsOnly && !(a.status === "corrections_requested" && a.correction_notes))
+        return false;
       if (!needle) return true;
       return [a.first_name, a.last_name, a.email, a.phone, a.reference_code, a.position_title]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(needle));
     });
-  }, [apps.data, q, status]);
+  }, [
+    apps.data,
+    q,
+    status,
+    openingId,
+    assignedRecruiterId,
+    submittedFrom,
+    submittedTo,
+    missingItemsOnly,
+  ]);
+
+  async function downloadFilteredCsv() {
+    try {
+      const result = await exportApps({
+        data: { application_ids: filtered.map((application) => application.id) },
+      });
+      const url = URL.createObjectURL(new Blob([result.csv], { type: "text/csv;charset=utf-8" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "recruiting-applications.csv";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Export failed");
+    }
+  }
+
+  function clearFilters() {
+    setQ("");
+    setStatus("all");
+    setOpeningId("all");
+    setAssignedRecruiterId("all");
+    setSubmittedFrom("");
+    setSubmittedTo("");
+    setMissingItemsOnly(false);
+    setPage(0);
+  }
 
   const pageSize = 15;
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const rows = filtered.slice(page * pageSize, page * pageSize + pageSize);
 
   if (sessionLoading) return <TableSkeleton rows={6} />;
-  if (!isRecruiter) return <AccessDenied need="recruiter" />;
+  if (!canRecruit) return <AccessDenied need="recruiter" />;
 
   return (
     <div>
@@ -143,6 +211,89 @@ function RecruitingPage() {
                 </option>
               ))}
             </select>
+            <select
+              value={openingId}
+              onChange={(e) => {
+                setOpeningId(e.target.value);
+                setPage(0);
+              }}
+              aria-label="Filter by opening"
+              className="rounded-sm border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="all">All openings</option>
+              {(options.data?.jobs ?? []).map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.position}
+                </option>
+              ))}
+            </select>
+            <select
+              value={assignedRecruiterId}
+              onChange={(e) => {
+                setAssignedRecruiterId(e.target.value);
+                setPage(0);
+              }}
+              aria-label="Filter by assigned recruiter"
+              className="rounded-sm border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="all">All recruiters</option>
+              <option value="unassigned">Unassigned</option>
+              {(options.data?.recruiters ?? []).map((recruiter) => (
+                <option key={recruiter.id} value={recruiter.id}>
+                  {recruiter.full_name}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 rounded-sm border border-input px-3 py-2 text-sm">
+              From
+              <input
+                type="date"
+                value={submittedFrom}
+                onChange={(e) => {
+                  setSubmittedFrom(e.target.value);
+                  setPage(0);
+                }}
+                aria-label="Submitted from"
+              />
+            </label>
+            <label className="flex items-center gap-2 rounded-sm border border-input px-3 py-2 text-sm">
+              To
+              <input
+                type="date"
+                value={submittedTo}
+                onChange={(e) => {
+                  setSubmittedTo(e.target.value);
+                  setPage(0);
+                }}
+                aria-label="Submitted to"
+              />
+            </label>
+            <label className="flex items-center gap-2 rounded-sm border border-input px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={missingItemsOnly}
+                onChange={(e) => {
+                  setMissingItemsOnly(e.target.checked);
+                  setPage(0);
+                }}
+              />
+              Missing items requested
+            </label>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-sm border border-input px-3 py-2 text-sm"
+            >
+              Clear filters
+            </button>
+            <button
+              type="button"
+              disabled={!filtered.length}
+              onClick={() => void downloadFilteredCsv()}
+              className="rounded-sm bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+            >
+              Export filtered CSV
+            </button>
           </div>
         }
       >
@@ -161,6 +312,7 @@ function RecruitingPage() {
                     <th className="py-2.5 pr-3 font-semibold">Applicant</th>
                     <th className="py-2.5 pr-3 font-semibold">Reference</th>
                     <th className="py-2.5 pr-3 font-semibold">Position</th>
+                    <th className="py-2.5 pr-3 font-semibold">Assigned recruiter</th>
                     <th className="py-2.5 pr-3 font-semibold">Status</th>
                     <th className="py-2.5 pr-3 font-semibold">Submitted</th>
                   </tr>
@@ -187,6 +339,11 @@ function RecruitingPage() {
                       </td>
                       <td className="py-3 pr-3 font-mono text-xs">{a.reference_code}</td>
                       <td className="py-3 pr-3">{a.position_title ?? "—"}</td>
+                      <td className="py-3 pr-3">
+                        {options.data?.recruiters.find(
+                          (recruiter) => recruiter.id === a.assigned_recruiter_id,
+                        )?.full_name ?? "Unassigned"}
+                      </td>
                       <td className="py-3 pr-3">
                         <StatusBadge status={a.status} label={applicationStatusLabel(a.status)} />
                       </td>

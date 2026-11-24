@@ -68,6 +68,7 @@ export const startPublicApplication = createServerFn({ method: "POST" })
     applications.push({
       id: uid(),
       user_id: null,
+      assigned_recruiter_id: null,
       job_id: data.job_id ?? null,
       position_title: job?.["position"] ?? null,
       reference_code,

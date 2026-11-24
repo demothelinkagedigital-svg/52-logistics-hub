@@ -360,6 +360,7 @@ function seed(): Tables {
   ].map((a, i) => ({
     id: `a0000000-0000-4000-a000-00000000000${i + 1}`,
     user_id: null,
+    assigned_recruiter_id: i === 1 || i === 3 ? recruiterId : null,
     resume_token_hash:
       i === 0 ? "35a8b2102bb067e1ec0bebef45ac4e3ca920473d36e15199248e9557b27e4660" : null,
     resume_expires_at: i === 0 ? daysAhead(30) : null,
@@ -1071,6 +1072,7 @@ export function getDb(): Tables {
         for (const app of parsed["applications"] ?? []) {
           if (legacyStatuses[app["status"]]) app["status"] = legacyStatuses[app["status"]];
           if (app["user_id"] === undefined) app["user_id"] = null;
+          if (app["assigned_recruiter_id"] === undefined) app["assigned_recruiter_id"] = null;
           const demoDraft =
             app["id"] === "a0000000-0000-4000-a000-000000000001" && app["status"] === "draft";
           if (app["resume_token_hash"] === undefined || (demoDraft && !app["resume_token_hash"])) {

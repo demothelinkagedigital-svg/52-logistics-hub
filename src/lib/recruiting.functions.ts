@@ -1,7 +1,11 @@
 import { createServerFn } from "@/lib/mock/server-fn";
 import { requireSupabaseAuth, type DemoContext } from "@/lib/mock/server-fn";
 import { z } from "zod";
-import { APPLICATION_STATUSES, ESIGN_STATUSES } from "@/lib/application-schema";
+import {
+  APPLICATION_STATUSES,
+  ESIGN_STATUSES,
+  applicationStatusLabel,
+} from "@/lib/application-schema";
 
 const HANDOFF_STEPS = [
   "reviewed_application",
@@ -33,11 +37,153 @@ export const listApplications = createServerFn({ method: "GET" })
     const { data, error } = await supabase
       .from("applications")
       .select(
-        "id, reference_code, first_name, last_name, email, phone, position_title, status, submitted_at, created_at, updated_at",
+        "id, reference_code, first_name, last_name, email, phone, position_title, job_id, status, submitted_at, created_at, updated_at, assigned_recruiter_id, correction_notes",
       )
       .order("submitted_at", { ascending: false, nullsFirst: false });
     if (error) throw new Error(error.message);
     return data ?? [];
+  });
+
+export const getRecruitingFilterOptions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await requireRecruiterOrAdministrator(supabase, userId);
+    const [jobsRes, roleRes] = await Promise.all([
+      supabase.from("jobs").select("id, position").eq("published", true).order("sort_order"),
+      supabase
+        .from("user_roles")
+        .select("user_id, role")
+        .in("role", ["recruiter", "administrator"]),
+    ]);
+    for (const result of [jobsRes, roleRes]) {
+      if (result.error) throw new Error(result.error.message);
+    }
+    const recruiterIds = [...new Set((roleRes.data ?? []).map((role) => role.user_id))];
+    const { data: recruiters, error } = recruiterIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", recruiterIds)
+          .order("full_name")
+      : { data: [], error: null };
+    if (error) throw new Error(error.message);
+    return { jobs: jobsRes.data ?? [], recruiters: recruiters ?? [] };
+  });
+
+export const assignApplicationRecruiter = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        assigned_recruiter_id: z.string().uuid().nullable(),
+      })
+      .strict()
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireRecruiterOrAdministrator(supabase, userId);
+    if (data.assigned_recruiter_id)
+      await requireRecruiterOrAdministrator(supabase, data.assigned_recruiter_id);
+    const { data: current, error: readError } = await supabase
+      .from("applications")
+      .select("assigned_recruiter_id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!current) throw new Error("Application not found");
+    if (current.assigned_recruiter_id === data.assigned_recruiter_id) return { ok: true };
+    const { data: updated, error } = await supabase
+      .from("applications")
+      .update({ assigned_recruiter_id: data.assigned_recruiter_id } as never)
+      .eq("id", data.id)
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!updated) throw new Error("Application not found");
+    const { error: eventError } = await supabase.from("application_events").insert({
+      application_id: data.id,
+      actor_id: userId,
+      event_type: "recruiter_assignment",
+      description: "Recruiter assignment updated",
+      metadata: { from: current.assigned_recruiter_id, to: data.assigned_recruiter_id },
+    });
+    if (eventError) throw new Error(eventError.message);
+    return { ok: true };
+  });
+
+const EXPORT_COLUMNS = [
+  "reference",
+  "applicant name",
+  "opening",
+  "status label",
+  "submitted date",
+  "assigned recruiter",
+] as const;
+
+function csvCell(value: string | null | undefined) {
+  const safe = String(value ?? "").replace(/^[=+\-@\t\r]/, "'$&");
+  return `"${safe.replaceAll('"', '""')}"`;
+}
+
+export const exportRecruitingApplications = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({ application_ids: z.array(z.string().uuid()).max(1000) })
+      .strict()
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireRecruiterOrAdministrator(supabase, userId);
+    const ids = [...new Set(data.application_ids)];
+    const [appsRes, jobsRes, roleRes] = await Promise.all([
+      ids.length
+        ? supabase
+            .from("applications")
+            .select(
+              "id, reference_code, first_name, last_name, job_id, position_title, status, submitted_at, assigned_recruiter_id",
+            )
+            .in("id", ids)
+        : Promise.resolve({ data: [], error: null }),
+      supabase.from("jobs").select("id, position"),
+      supabase.from("user_roles").select("user_id").in("role", ["recruiter", "administrator"]),
+    ]);
+    for (const result of [appsRes, jobsRes, roleRes]) {
+      if (result.error) throw new Error(result.error.message);
+    }
+    const recruiterIds = [...new Set((roleRes.data ?? []).map((role) => role.user_id))];
+    const { data: profiles, error: profilesError } = recruiterIds.length
+      ? await supabase.from("profiles").select("id, full_name").in("id", recruiterIds)
+      : { data: [], error: null };
+    if (profilesError) throw new Error(profilesError.message);
+    const jobs = new Map((jobsRes.data ?? []).map((job) => [job.id, job.position]));
+    const recruiters = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
+    const csv = [
+      EXPORT_COLUMNS,
+      ...(appsRes.data ?? []).map((application) => [
+        application.reference_code,
+        `${application.first_name} ${application.last_name}`.trim(),
+        jobs.get(application.job_id) ?? application.position_title,
+        applicationStatusLabel(application.status),
+        application.submitted_at?.slice(0, 10) ?? null,
+        recruiters.get(application.assigned_recruiter_id) ?? "Unassigned",
+      ]),
+    ]
+      .map((row) => row.map((value) => csvCell(value)).join(","))
+      .join("\r\n");
+    const { error: auditError } = await supabase.from("audit_logs").insert({
+      actor_id: userId,
+      action: "recruiting_applications_exported",
+      target_type: "applications",
+      target_id: null,
+      metadata: { row_count: appsRes.data?.length ?? 0, columns: EXPORT_COLUMNS },
+    });
+    if (auditError) throw new Error(auditError.message);
+    return { csv, row_count: appsRes.data?.length ?? 0 };
   });
 
 export const getApplicationDetail = createServerFn({ method: "GET" })
@@ -51,7 +197,7 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
         supabase
           .from("applications")
           .select(
-            "id, reference_code, first_name, last_name, preferred_name, email, phone, preferred_contact_method, city, state, postal_code, position_title, status, is_18_or_older, cdl_class, cdl_state, cdl_status, endorsements, commercial_experience_years, tractor_trailer_experience, linehaul_pd_experience, schedule_availability, start_availability, authorized_to_work, can_perform_duties_with_or_without_accommodation, medical_card_status, medical_card_expiration_month, medical_card_expiration_year, agrees_to_comply, consent_electronic_records, signature_signed_at, signature_name, certified, how_did_you_hear, additional_notes, qualification_gap, qualification_gap_reasons",
+            "id, reference_code, first_name, last_name, preferred_name, email, phone, preferred_contact_method, city, state, postal_code, position_title, job_id, assigned_recruiter_id, status, is_18_or_older, cdl_class, cdl_state, cdl_status, endorsements, commercial_experience_years, tractor_trailer_experience, linehaul_pd_experience, schedule_availability, start_availability, authorized_to_work, can_perform_duties_with_or_without_accommodation, medical_card_status, medical_card_expiration_month, medical_card_expiration_year, agrees_to_comply, consent_electronic_records, signature_signed_at, signature_name, certified, how_did_you_hear, additional_notes, qualification_gap, qualification_gap_reasons",
           )
           .eq("id", data.id)
           .maybeSingle(),
@@ -76,11 +222,11 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
           .from("application_events")
           .select("id, event_type, created_at, actor_id, metadata, description")
           .eq("application_id", data.id)
-        .neq("event_type", "screening_update")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("application_events")
-        .select("metadata, created_at")
+          .neq("event_type", "screening_update")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("application_events")
+          .select("metadata, created_at")
           .eq("application_id", data.id)
           .eq("event_type", "first_advantage_handoff_update")
           .order("created_at", { ascending: false })
@@ -108,6 +254,14 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
       if (result.error) throw new Error(result.error.message);
     }
     if (!appRes.data) throw new Error("Application not found");
+    const openingRes = appRes.data.job_id
+      ? await supabase
+          .from("jobs")
+          .select("id, position, days, schedule")
+          .eq("id", appRes.data.job_id)
+          .maybeSingle()
+      : { data: null, error: null };
+    if (openingRes.error) throw new Error(openingRes.error.message);
     const actorIds = [
       ...new Set(
         (eventRes.data ?? [])
@@ -127,6 +281,7 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
     const actorNames = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
     return {
       application: appRes.data,
+      opening: openingRes.data,
       employers: empRes.data ?? [],
       documents: docRes.data ?? [],
       notes: noteRes.data ?? [],
@@ -291,7 +446,16 @@ const esignRecordSchema = z
     status: z.enum(ESIGN_STATUSES),
     notes: z.string().trim().max(2000).nullable(),
   })
-  .strict();
+  .strict()
+  .superRefine((record, ctx) => {
+    if (record.sent_date && record.completion_date && record.completion_date < record.sent_date) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["completion_date"],
+        message: "Completion date cannot be earlier than sent date.",
+      });
+    }
+  });
 
 export const saveEsignRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

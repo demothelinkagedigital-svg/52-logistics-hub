@@ -5,6 +5,8 @@ import { DEMO_USERS } from "../src/lib/mock/db";
 import { setDemoUserId } from "../src/lib/mock/client";
 import {
   getApplicationDetail,
+  assignApplicationRecruiter,
+  exportRecruitingApplications,
   saveFirstAdvantageHandoff,
   saveEsignRecord,
   deleteEsignRecord,
@@ -165,6 +167,41 @@ const recruiterId = DEMO_USERS.find((user) => user.roles.includes("recruiter"))!
 const contentManagerId = DEMO_USERS.find((user) => user.roles.includes("content_manager"))!.id;
 setDemoUserId(recruiterId);
 const reviewApplicationId = "a0000000-0000-4000-a000-000000000005";
+await assignApplicationRecruiter({
+  data: { id: reviewApplicationId, assigned_recruiter_id: recruiterId },
+});
+const assignedApplication = table("applications").find((row) => row["id"] === reviewApplicationId)!;
+assert.equal(assignedApplication["assigned_recruiter_id"], recruiterId);
+const assignmentEvent = table("application_events").find(
+  (event) =>
+    event["application_id"] === reviewApplicationId &&
+    event["event_type"] === "recruiter_assignment",
+)!;
+assert.equal(assignmentEvent["description"], "Recruiter assignment updated");
+assert.ok(assignmentEvent["created_at"]);
+assert.deepEqual(assignmentEvent["metadata"], { from: null, to: recruiterId });
+const exported = await exportRecruitingApplications({
+  data: { application_ids: [reviewApplicationId] },
+});
+const csvRows = exported.csv.split("\r\n").map((line) => line.split(","));
+const csvHeader = csvRows[0]!.map((cell) => cell.slice(1, -1));
+assert.deepEqual(csvHeader, [
+  "reference",
+  "applicant name",
+  "opening",
+  "status label",
+  "submitted date",
+  "assigned recruiter",
+]);
+assert.equal(csvRows[1]!.length, csvHeader.length);
+assert.equal(exported.csv.includes("example.com"), false);
+assert.equal(exported.row_count, 1);
+const exportAudit = table("audit_logs").find(
+  (entry) => entry["action"] === "recruiting_applications_exported",
+)!;
+assert.equal(exportAudit["actor_id"], recruiterId);
+assert.ok(exportAudit["created_at"]);
+assert.equal(exportAudit["metadata"]["row_count"], 1);
 const handoff = {
   application_id: reviewApplicationId,
   invitation_date: "2026-01-12",
@@ -203,6 +240,10 @@ await assert.rejects(saveFirstAdvantageHandoff({ data: { ...handoff, status: "cl
 setDemoUserId(contentManagerId);
 await assert.rejects(getApplicationDetail({ data: { id: reviewApplicationId } }), /Forbidden/);
 await assert.rejects(saveFirstAdvantageHandoff({ data: handoff }), /Forbidden/);
+await assert.rejects(
+  exportRecruitingApplications({ data: { application_ids: [reviewApplicationId] } }),
+  /Forbidden/,
+);
 setDemoUserId(recruiterId);
 const esign = {
   application_id: reviewApplicationId,
@@ -221,6 +262,7 @@ let esignRecord = table("esign_records").find(
     record["document_name"] === esign.document_type,
 )!;
 assert.equal(esignRecord["status"], "sent");
+await assert.rejects(saveEsignRecord({ data: { ...esign, completion_date: "2026-01-11" } }));
 await saveEsignRecord({
   data: { ...esign, id: esignRecord["id"], status: "completed", notes: "Signed" },
 });
