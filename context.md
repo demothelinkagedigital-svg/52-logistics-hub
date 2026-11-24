@@ -90,7 +90,7 @@ The migration files were edited as source files; no Supabase migration execution
 - Rebuilt the applicant workflow in this order: Position & identity; Eligibility & CDL; Safety & availability; Employment history; Documents; Certification. Steps cover opening/contact details; work authorization/CDL/endorsements/experience; schedules/start date/accommodation/medical card/compliance; up to five employer records; optional private uploads; and read-only answer review with certification and signature.
 - Added inline validation for each step, draft autosave and resume, 320px-friendly layouts and touch targets, optional private document uploads with upload guidance, and Privacy and Applicant Notice links.
 - Added non-blocking qualification-gap flags and reasons for human review (no automated rejection), a server-set signature timestamp, and a submission confirmation showing the reference, position, submitted time, and recruiting follow-up notice.
-- The six-step form is in `/portal/application`; the public `/apply` page remains an inquiry page.
+- At this stage, the six-step form was in `/portal/application` and `/apply` remained an inquiry page. This was superseded by the public application workflow described in section 11.
 - Updated `src/routes/_authenticated/portal.application.tsx`, `src/lib/application-schema.ts`, and `src/lib/portal.functions.ts`. Production build passed. The requested end-to-end form interaction and save-refresh-resume checks were not completed in the browser preview.
 
 ## 8. Browser runtime error and hidden public-page content
@@ -108,3 +108,32 @@ The migration files were edited as source files; no Supabase migration execution
 
 - Made each applicant row in the recruiter pipeline navigate to its application when clicked anywhere in the row; retained the applicant-name link.
 - Updated `src/routes/_authenticated/portal.recruiting.index.tsx`. Production build passed. Typecheck still reports only the existing `src/routes/__root.tsx` error. The preview redirected to demo sign-in, so row interaction could not be tested in the browser.
+
+## 11. Public application and private resume links
+
+- Moved the six-step application to the public `/apply` flow. Applicants select an opening, start without an account, and receive a private link at `/apply/resume/$token` to return to their saved application.
+- Improved application resumption and submission validation, including a helpful invalid-or-expired-link state. Resume pages are marked `noindex` and use a `no-referrer` policy.
+- Kept internal application status private in applicant confirmations. Updated the public application tests and added `tsx` for running the TypeScript test script.
+- Changed the application form, public application server functions, mock data, public Apply routes, and related portal navigation and routing. This supersedes the earlier `/portal/application` workflow described in section 7.
+
+## 12. Application status model
+
+- Aligned the application workflow to ten ordered staff-facing statuses: New, Incomplete, Ready for Review, Ready to Invite to First Advantage, First Advantage Invitation Sent, Candidate Completing First Advantage, Screening Complete – Management Review, Hired, Rejected, and Archived.
+- Updated public submission behavior, demo data, recruiter and administrator screens, portal counters, status events, and role authorization. Applicant-editable states remain supported, and qualification gaps remain for human review rather than automatic decisions.
+- Extended `scripts/test-public-application.ts` to cover the status and submission behavior. No Supabase files were changed for this work.
+
+## 13. First Advantage and DocuSign tracking
+
+- Replaced the screening-result model and UI with a manual First Advantage handoff checklist and event metadata. The handoff can suggest a status, but saving it does not automatically change application status.
+- Added manual DocuSign record tracking, including the offer-letter demo record. Recruiter and administrator authorization is enforced in the server functions, and event descriptions remain generic.
+- Extended the public application test script to cover handoff and DocuSign behavior. No Supabase migration or real Supabase project changes were made for this work.
+
+## 14. Recruiter list and application detail polish
+
+- Added nullable `assigned_recruiter_id` to the demo application data and schema, seeded both assigned and unassigned applications, and initialized new applications as unassigned. Assignment changes are recorded in `application_events` with a generic description and the old/new IDs in metadata.
+- Added recruiter-list filters for opening, assigned recruiter or Unassigned, submitted-date range, and missing-items requests, plus Clear filters. Search continues to include reference codes, and assignments appear in the list and detail actions.
+- Restricted Hired, Rejected, and Archived status choices to administrators; recruiter controls show a “Management only” hint. Replaced the qualification flag with a read-only CDL, experience, medical-card, schedule, and gaps summary carrying the disclaimer “For human review. No automatic decisions.”
+- Added an audited CSV export of the filtered list, limited to reference, applicant name, opening, status label, submitted date, and assigned recruiter. The server denies content managers and records the export actor, time, and row count.
+- Added validation preventing a DocuSign completion date earlier than its sent date. Extended tests for assignment persistence and events, export columns and privacy, export auditing, content-manager denial, and the date rule.
+- Assignment storage uses the demo mock store only. No Supabase migration tool was used, no real Supabase project was changed, and no `supabase/` files were touched for this work.
+- At completion, `npm run build` and `npx tsx scripts/test-public-application.ts` passed. Typecheck reported only the previously noted `src/routes/__root.tsx` error. The recruiter preview displayed the demo account chooser, so authenticated UI interaction was not verified.
