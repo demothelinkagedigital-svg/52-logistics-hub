@@ -262,13 +262,50 @@ class QueryBuilder implements PromiseLike<Result<any[]>> {
 /* ---------------------------------- rpc ---------------------------------- */
 
 function rpc(fn: string, args: Record<string, any> = {}): Promise<{ data: any; error: null }> {
-  const userId = (args["_user_id"] as string) ?? getDemoUserId();
+  const actorId = getDemoUserId();
+  const userId = (args["_user_id"] as string) ?? actorId;
   const roles = demoRoles(userId ?? null);
-  const admin = roles.includes("administrator") || roles.includes("developer");
+  const actorRoles = demoRoles(actorId);
+  const admin = actorRoles.includes("administrator");
   let data: any = null;
-  if (fn === "has_role") data = roles.includes(String(args["_role"])) || admin;
-  else if (fn === "is_recruiting_staff") data = admin || roles.includes("recruiter");
-  else if (fn === "is_content_staff") data = admin || roles.includes("content_manager") || roles.includes("recruiter");
+  if (fn === "has_role") {
+    data = userId === actorId && String(args["_role"]) !== "developer" && roles.includes(String(args["_role"]));
+  } else if (fn === "is_recruiting_staff") {
+    data = userId === actorId && (roles.includes("administrator") || roles.includes("recruiter"));
+  } else if (fn === "is_content_staff") {
+    data = userId === actorId && (roles.includes("administrator") || roles.includes("content_manager"));
+  } else if (fn === "admin_set_user_role") {
+    const targetId = String(args["_user_id"]);
+    const role = String(args["_role"]);
+    const grant = args["_grant"] === true;
+    const targetRoles = demoRoles(targetId);
+    if (
+      admin &&
+      targetId !== actorId &&
+      role !== "developer" &&
+      !(grant && targetRoles.includes("developer"))
+    ) {
+      const roleRows = table("user_roles");
+      if (grant && !targetRoles.includes(role)) {
+        roleRows.push({ id: uid(), user_id: targetId, role, granted_by: actorId });
+      } else if (!grant) {
+        const db = getDb();
+        db["user_roles"] = roleRows.filter((row) => row["user_id"] !== targetId || row["role"] !== role);
+      }
+      table("audit_logs").push({
+        id: uid(),
+        actor_id: actorId,
+        actor_email: DEMO_USERS.find((user) => user.id === actorId)?.email ?? null,
+        action: grant ? "role_granted" : "role_revoked",
+        target_type: "user",
+        target_id: targetId,
+        metadata: { role },
+        created_at: new Date().toISOString(),
+      });
+      persist();
+      data = true;
+    } else data = false;
+  }
   return Promise.resolve({ data, error: null });
 }
 

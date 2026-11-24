@@ -27,19 +27,15 @@ export const sessionQuery = queryOptions({
 
 export function useSession() {
   const { data, isLoading } = useQuery(sessionQuery);
-  const roles = data?.roles ?? [];
+  const roles: AppRole[] = (data?.roles ?? []).filter((role) => role !== "developer");
   return {
     user: data?.user ?? null,
     roles,
     isLoading,
     has: (...r: AppRole[]) => r.some((x) => roles.includes(x)),
-    isAdmin: roles.includes("administrator") || roles.includes("developer"),
-    isRecruiter:
-      roles.includes("recruiter") || roles.includes("administrator") || roles.includes("developer"),
-    isContent:
-      roles.includes("content_manager") ||
-      roles.includes("administrator") ||
-      roles.includes("developer"),
+    isAdmin: roles.includes("administrator"),
+    isRecruiter: roles.includes("recruiter") || roles.includes("administrator"),
+    isContent: roles.includes("content_manager") || roles.includes("administrator"),
     isDriver: roles.includes("driver"),
   };
 }

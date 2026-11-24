@@ -32,14 +32,7 @@ export const setUserRole = createServerFn({ method: "POST" })
     z
       .object({
         user_id: z.string().uuid(),
-        role: z.enum([
-          "administrator",
-          "recruiter",
-          "content_manager",
-          "driver",
-          "applicant",
-          "developer",
-        ]),
+        role: z.enum(["administrator", "recruiter", "content_manager", "driver", "applicant"]),
         grant: z.boolean(),
       })
       .parse(input),
@@ -54,26 +47,12 @@ export const setUserRole = createServerFn({ method: "POST" })
     if (data.user_id === userId && data.role === "administrator" && !data.grant) {
       throw new Error("You cannot remove your own administrator role.");
     }
-    if (data.grant) {
-      const { error } = await supabase
-        .from("user_roles")
-        .insert({ user_id: data.user_id, role: data.role, granted_by: userId });
-      if (error && !error.message.includes("duplicate")) throw new Error(error.message);
-    } else {
-      const { error } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", data.user_id)
-        .eq("role", data.role);
-      if (error) throw new Error(error.message);
-    }
-    await supabase.from("audit_logs").insert({
-      actor_id: userId,
-      action: data.grant ? "role_granted" : "role_revoked",
-      target_type: "user",
-      target_id: data.user_id,
-      metadata: { role: data.role },
+    const { data: updated, error } = await supabase.rpc("admin_set_user_role", {
+      _user_id: data.user_id,
+      _role: data.role,
+      _grant: data.grant,
     });
+    if (!updated) throw new Error("Role change was denied.");
     return { ok: true };
   });
 
