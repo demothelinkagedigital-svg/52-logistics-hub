@@ -151,16 +151,6 @@ export function applicationStatusLabel(status: string): string {
   return APPLICATION_STATUS_LABELS[status] ?? status;
 }
 
-export const SCREENING_STATUSES = [
-  "not_started",
-  "initiated",
-  "pending",
-  "clear",
-  "review_required",
-  "failed",
-  "cancelled",
-] as const;
-
 export const ESIGN_STATUSES = [
   "not_sent",
   "sent",

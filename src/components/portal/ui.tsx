@@ -21,9 +21,6 @@ const STATUS_TONE: Record<string, string> = {
   archived: "bg-secondary text-muted-foreground",
   pending: "bg-secondary text-foreground/70",
   approved: "bg-emerald-500/15 text-emerald-700",
-  clear: "bg-emerald-500/15 text-emerald-700",
-  failed: "bg-destructive/10 text-destructive",
-  review_required: "bg-accent/15 text-accent-foreground",
 };
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {

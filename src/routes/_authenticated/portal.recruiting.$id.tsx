@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
 import { toast } from "sonner";
@@ -11,11 +11,15 @@ import {
   requestCorrections,
   verifyDocument,
   getDocumentUrl,
+  saveFirstAdvantageHandoff,
+  saveEsignRecord,
+  deleteEsignRecord,
 } from "@/lib/recruiting.functions";
 import {
   APPLICATION_STATUS_LABELS,
   APPLICATION_STATUS_ORDER,
   applicationStatusLabel,
+  ESIGN_STATUSES,
 } from "@/lib/application-schema";
 import { useSession } from "@/lib/session";
 import { PortalHeading } from "@/components/portal/PortalShell";
@@ -60,13 +64,43 @@ const ACTIVITY_LABELS: Record<string, string> = {
   document_approved: "Document approved",
   document_rejected: "Document rejected",
   document_pending: "Document pending",
-  screening_update: "Screening updated",
-  esign_update: "Electronic signature updated",
+  first_advantage_handoff_update: "First Advantage handoff updated",
+  esign_update: "DocuSign record updated",
+};
+
+const HANDOFF_STEPS = [
+  [
+    "reviewed_application",
+    "Reviewed the application and confirmed Ready to Invite to First Advantage",
+  ],
+  ["opened_employer_portal", "Opened the First Advantage employer portal (outside this website)"],
+  [
+    "created_candidate_invitation",
+    "Created or sent the candidate invitation in the First Advantage portal",
+  ],
+  [
+    "recorded_handoff_details",
+    "Recorded invitation date, recruiter, case ID and next check date here",
+  ],
+  ["updated_application_status", "Updated the status here from provider-side information"],
+] as const;
+
+const ESIGN_DOCUMENT_TYPES = ["Offer letter", "Employment forms", "Other"] as const;
+type EsignDocumentType = (typeof ESIGN_DOCUMENT_TYPES)[number];
+type EsignForm = {
+  id?: string;
+  document_type: EsignDocumentType;
+  sent_date: string;
+  sender_id: string;
+  external_reference_id: string;
+  completion_date: string;
+  status: (typeof ESIGN_STATUSES)[number];
+  notes: string;
 };
 
 function ApplicantDetail() {
   const { id } = Route.useParams();
-  const { isRecruiter, isLoading: sessionLoading } = useSession();
+  const { isRecruiter, user, isLoading: sessionLoading } = useSession();
   const queryClient = useQueryClient();
   const fetchDetail = useServerFn(getApplicationDetail);
   const setStatus = useServerFn(updateApplicationStatus);
@@ -74,7 +108,33 @@ function ApplicantDetail() {
   const requestFix = useServerFn(requestCorrections);
   const verify = useServerFn(verifyDocument);
   const openDoc = useServerFn(getDocumentUrl);
+  const saveHandoff = useServerFn(saveFirstAdvantageHandoff);
+  const saveEsign = useServerFn(saveEsignRecord);
+  const removeEsign = useServerFn(deleteEsignRecord);
 
+  const [handoffForm, setHandoffForm] = useState({
+    invitation_date: "",
+    responsible_recruiter_id: "",
+    external_case_id: "",
+    next_check_date: "",
+    operational_note: "",
+    checklist: {
+      reviewed_application: false,
+      opened_employer_portal: false,
+      created_candidate_invitation: false,
+      recorded_handoff_details: false,
+      updated_application_status: false,
+    },
+  });
+  const [esignForm, setEsignForm] = useState<EsignForm>({
+    document_type: "Offer letter",
+    sent_date: "",
+    sender_id: "",
+    external_reference_id: "",
+    completion_date: "",
+    status: "not_sent",
+    notes: "",
+  });
   const [note, setNote] = useState("");
   const [statusNote, setStatusNote] = useState("");
   const [corrections, setCorrections] = useState("");
@@ -85,6 +145,33 @@ function ApplicantDetail() {
     queryFn: () => fetchDetail({ data: { id } }),
     enabled: isRecruiter,
   });
+
+  useEffect(() => {
+    if (!data) return;
+    if (data.handoff) {
+      const handoff = data.handoff as {
+        invitation_date?: string | null;
+        responsible_recruiter_id?: string | null;
+        external_case_id?: string | null;
+        next_check_date?: string | null;
+        operational_note?: string | null;
+        checklist?: Record<string, { done_at: string | null; done_by: string | null }>;
+      };
+      setHandoffForm({
+        invitation_date: handoff.invitation_date ?? "",
+        responsible_recruiter_id: handoff.responsible_recruiter_id ?? "",
+        external_case_id: handoff.external_case_id ?? "",
+        next_check_date: handoff.next_check_date ?? "",
+        operational_note: handoff.operational_note ?? "",
+        checklist: Object.fromEntries(
+          HANDOFF_STEPS.map(([key]) => [key, Boolean(handoff.checklist?.[key]?.done_at)]),
+        ) as typeof handoffForm.checklist,
+      });
+    }
+    setEsignForm((current) =>
+      current.sender_id || !user?.id ? current : { ...current, sender_id: user.id },
+    );
+  }, [data, user?.id]);
 
   async function run(fn: () => Promise<unknown>, ok: string) {
     setBusy(true);
@@ -108,6 +195,12 @@ function ApplicantDetail() {
   if (!data) return <EmptyState title="Application not found" />;
 
   const a = data.application;
+  const statusForOrder = ["draft", "corrections_requested"].includes(a.status)
+    ? "incomplete"
+    : a.status;
+  const shouldSuggestInvitationStatus =
+    APPLICATION_STATUS_ORDER.indexOf(statusForOrder as (typeof APPLICATION_STATUS_ORDER)[number]) <
+    APPLICATION_STATUS_ORDER.indexOf("fadv_invitation_sent");
 
   return (
     <div>
@@ -306,6 +399,352 @@ function ApplicantDetail() {
                   ))}
               </ul>
             )}
+          </Panel>
+
+          <Panel title="First Advantage handoff">
+            <p className="mb-4 rounded-sm border border-accent/30 bg-accent/5 p-3 text-sm">
+              Record handoff details only. Never enter screening results, background details, drug
+              or alcohol results, MVR or Clearinghouse data, passwords or screenshots.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                Invitation date
+                <input
+                  type="date"
+                  value={handoffForm.invitation_date}
+                  onChange={(e) =>
+                    setHandoffForm((form) => ({ ...form, invitation_date: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">
+                Responsible recruiter
+                <select
+                  value={handoffForm.responsible_recruiter_id}
+                  onChange={(e) =>
+                    setHandoffForm((form) => ({
+                      ...form,
+                      responsible_recruiter_id: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                >
+                  <option value="">Select recruiter</option>
+                  {data.recruiters.map((recruiter) => (
+                    <option key={recruiter.id} value={recruiter.id}>
+                      {recruiter.full_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                External case ID (optional)
+                <input
+                  maxLength={160}
+                  value={handoffForm.external_case_id}
+                  onChange={(e) =>
+                    setHandoffForm((form) => ({ ...form, external_case_id: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">
+                Next check date
+                <input
+                  type="date"
+                  value={handoffForm.next_check_date}
+                  onChange={(e) =>
+                    setHandoffForm((form) => ({ ...form, next_check_date: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                />
+              </label>
+            </div>
+            <label className="mt-3 block text-sm">
+              Operational note
+              <textarea
+                maxLength={300}
+                rows={2}
+                value={handoffForm.operational_note}
+                onChange={(e) =>
+                  setHandoffForm((form) => ({ ...form, operational_note: e.target.value }))
+                }
+                className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+              />
+            </label>
+            <div className="mt-4 space-y-2">
+              {HANDOFF_STEPS.map(([key, label]) => (
+                <label key={key} className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={handoffForm.checklist[key]}
+                    onChange={(e) =>
+                      setHandoffForm((form) => ({
+                        ...form,
+                        checklist: { ...form.checklist, [key]: e.target.checked },
+                      }))
+                    }
+                    className="mt-1"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void run(
+                  () =>
+                    saveHandoff({
+                      data: {
+                        application_id: id,
+                        invitation_date: handoffForm.invitation_date || null,
+                        responsible_recruiter_id: handoffForm.responsible_recruiter_id || null,
+                        external_case_id: handoffForm.external_case_id.trim() || null,
+                        next_check_date: handoffForm.next_check_date || null,
+                        operational_note: handoffForm.operational_note.trim() || null,
+                        checklist: handoffForm.checklist,
+                      },
+                    }),
+                  "First Advantage handoff saved",
+                )
+              }
+              className="mt-4 w-full rounded-sm border border-input px-4 py-2.5 text-sm font-semibold hover:bg-secondary disabled:opacity-60"
+            >
+              Save handoff details
+            </button>
+            {handoffForm.checklist.recorded_handoff_details && shouldSuggestInvitationStatus ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void run(
+                    () => setStatus({ data: { id, status: "fadv_invitation_sent" } }),
+                    "Status updated",
+                  )
+                }
+                className="mt-3 w-full rounded-sm bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+              >
+                Set status: First Advantage Invitation Sent
+              </button>
+            ) : null}
+          </Panel>
+
+          <Panel title="DocuSign tracking">
+            <p className="mb-4 rounded-sm border border-accent/30 bg-accent/5 p-3 text-sm">
+              Documents are signed in DocuSign. This only tracks them.
+            </p>
+            <ul className="mb-5 divide-y divide-border">
+              {data.esignRecords.map((record) => (
+                <li key={record.id} className="space-y-2 py-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold">{record.document_name}</span>
+                    <StatusBadge status={record.status} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Sent {record.sent_at ? new Date(record.sent_at).toLocaleDateString() : "—"} ·
+                    Sender{" "}
+                    {data.recruiters.find((r) => r.id === record.updated_by)?.full_name ?? "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Reference {record.envelope_reference ?? "—"} · Completed{" "}
+                    {record.completed_at ? new Date(record.completed_at).toLocaleDateString() : "—"}
+                  </p>
+                  {record.notes ? (
+                    <p className="text-xs text-muted-foreground">{record.notes}</p>
+                  ) : null}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        setEsignForm({
+                          id: record.id,
+                          document_type: ESIGN_DOCUMENT_TYPES.includes(
+                            record.document_name as EsignDocumentType,
+                          )
+                            ? (record.document_name as EsignDocumentType)
+                            : "Other",
+                          sent_date: record.sent_at?.slice(0, 10) ?? "",
+                          sender_id: record.updated_by ?? user?.id ?? "",
+                          external_reference_id: record.envelope_reference ?? "",
+                          completion_date: record.completed_at?.slice(0, 10) ?? "",
+                          status: record.status,
+                          notes: record.notes ?? "",
+                        })
+                      }
+                      className="rounded-sm border border-input px-3 py-1.5 text-xs font-semibold"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        if (window.confirm("Delete this DocuSign tracking entry?"))
+                          void run(
+                            () => removeEsign({ data: { id: record.id, application_id: id } }),
+                            "DocuSign record deleted",
+                          );
+                      }}
+                      className="rounded-sm border border-destructive/40 px-3 py-1.5 text-xs font-semibold text-destructive"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                Document type
+                <select
+                  value={esignForm.document_type}
+                  onChange={(e) =>
+                    setEsignForm((form) => ({
+                      ...form,
+                      document_type: e.target.value as EsignDocumentType,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                >
+                  {ESIGN_DOCUMENT_TYPES.map((type) => (
+                    <option key={type}>{type}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                Status
+                <select
+                  value={esignForm.status}
+                  onChange={(e) =>
+                    setEsignForm((form) => ({
+                      ...form,
+                      status: e.target.value as EsignForm["status"],
+                    }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                >
+                  {ESIGN_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                Sent date
+                <input
+                  type="date"
+                  value={esignForm.sent_date}
+                  onChange={(e) => setEsignForm((form) => ({ ...form, sent_date: e.target.value }))}
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">
+                Sender
+                <select
+                  value={esignForm.sender_id}
+                  onChange={(e) => setEsignForm((form) => ({ ...form, sender_id: e.target.value }))}
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                >
+                  <option value="">Select recruiter</option>
+                  {data.recruiters.map((recruiter) => (
+                    <option key={recruiter.id} value={recruiter.id}>
+                      {recruiter.full_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                External envelope or reference ID
+                <input
+                  maxLength={160}
+                  value={esignForm.external_reference_id}
+                  onChange={(e) =>
+                    setEsignForm((form) => ({ ...form, external_reference_id: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                />
+              </label>
+              <label className="text-sm">
+                Completion date
+                <input
+                  type="date"
+                  value={esignForm.completion_date}
+                  onChange={(e) =>
+                    setEsignForm((form) => ({ ...form, completion_date: e.target.value }))
+                  }
+                  className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+                />
+              </label>
+            </div>
+            <label className="mt-3 block text-sm">
+              Notes
+              <textarea
+                rows={2}
+                value={esignForm.notes}
+                onChange={(e) => setEsignForm((form) => ({ ...form, notes: e.target.value }))}
+                className="mt-1 w-full rounded-sm border border-input bg-background px-3 py-2"
+              />
+            </label>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                disabled={busy || !esignForm.sender_id}
+                onClick={() =>
+                  void run(
+                    async () => {
+                      await saveEsign({
+                        data: {
+                          ...esignForm,
+                          application_id: id,
+                          sent_date: esignForm.sent_date || null,
+                          completion_date: esignForm.completion_date || null,
+                          external_reference_id: esignForm.external_reference_id.trim() || null,
+                          notes: esignForm.notes.trim() || null,
+                        },
+                      });
+                      setEsignForm({
+                        document_type: "Offer letter",
+                        sent_date: "",
+                        sender_id: user?.id ?? "",
+                        external_reference_id: "",
+                        completion_date: "",
+                        status: "not_sent",
+                        notes: "",
+                      });
+                    },
+                    esignForm.id ? "DocuSign record updated" : "DocuSign record added",
+                  )
+                }
+                className="flex-1 rounded-sm bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground disabled:opacity-60"
+              >
+                {esignForm.id ? "Save changes" : "Add DocuSign record"}
+              </button>
+              {esignForm.id ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    setEsignForm({
+                      document_type: "Offer letter",
+                      sent_date: "",
+                      sender_id: user?.id ?? "",
+                      external_reference_id: "",
+                      completion_date: "",
+                      status: "not_sent",
+                      notes: "",
+                    })
+                  }
+                  className="rounded-sm border border-input px-4 py-2.5 text-sm font-semibold"
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
           </Panel>
 
           <Panel title="Activity history">

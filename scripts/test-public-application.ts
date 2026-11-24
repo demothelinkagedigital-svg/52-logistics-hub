@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { getDb, resetDb, table } from "../src/lib/mock/db";
 import { hashToken } from "../src/lib/application-access";
+import { DEMO_USERS } from "../src/lib/mock/db";
+import { setDemoUserId } from "../src/lib/mock/client";
+import {
+  getApplicationDetail,
+  saveFirstAdvantageHandoff,
+  saveEsignRecord,
+  deleteEsignRecord,
+} from "../src/lib/recruiting.functions";
 import {
   startPublicApplication,
   getApplicationByToken,
@@ -140,4 +148,88 @@ for (const value of [demoToken, first.resume_token, second.resume_token])
 
 await Promise.all(Array.from({ length: 25 }, (_, i) => failure(`wrong-${i}`)));
 assert.equal(await failure(token), expiredError);
-console.log("Public application tests passed.");
+
+const storage = new Map<string, string>();
+Object.defineProperty(globalThis, "window", {
+  configurable: true,
+  value: {
+    localStorage: {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    },
+  },
+});
+resetDb();
+const recruiterId = DEMO_USERS.find((user) => user.roles.includes("recruiter"))!.id;
+const contentManagerId = DEMO_USERS.find((user) => user.roles.includes("content_manager"))!.id;
+setDemoUserId(recruiterId);
+const reviewApplicationId = "a0000000-0000-4000-a000-000000000005";
+const handoff = {
+  application_id: reviewApplicationId,
+  invitation_date: "2026-01-12",
+  responsible_recruiter_id: recruiterId,
+  external_case_id: "CASE-4821",
+  next_check_date: "2026-01-19",
+  operational_note: "Follow up with candidate",
+  checklist: {
+    reviewed_application: true,
+    opened_employer_portal: true,
+    created_candidate_invitation: true,
+    recorded_handoff_details: true,
+    updated_application_status: false,
+  },
+};
+const existingStatus = table("applications").find((row) => row["id"] === reviewApplicationId)![
+  "status"
+];
+await saveFirstAdvantageHandoff({ data: handoff });
+const handoffEvent = table("application_events").find(
+  (event) =>
+    event["application_id"] === reviewApplicationId &&
+    event["event_type"] === "first_advantage_handoff_update",
+)!;
+assert.equal(handoffEvent["actor_id"], recruiterId);
+assert.equal(handoffEvent["description"], "First Advantage handoff updated");
+assert.equal(
+  handoffEvent["metadata"]["checklist"]["recorded_handoff_details"]["done_by"],
+  recruiterId,
+);
+assert.equal(
+  table("applications").find((row) => row["id"] === reviewApplicationId)!["status"],
+  existingStatus,
+);
+await assert.rejects(saveFirstAdvantageHandoff({ data: { ...handoff, status: "clear" } as never }));
+setDemoUserId(contentManagerId);
+await assert.rejects(getApplicationDetail({ data: { id: reviewApplicationId } }), /Forbidden/);
+await assert.rejects(saveFirstAdvantageHandoff({ data: handoff }), /Forbidden/);
+setDemoUserId(recruiterId);
+const esign = {
+  application_id: reviewApplicationId,
+  document_type: "Employment forms" as const,
+  sent_date: "2026-01-12",
+  sender_id: recruiterId,
+  external_reference_id: "DS-492",
+  completion_date: null,
+  status: "sent" as const,
+  notes: "Awaiting signature",
+};
+await saveEsignRecord({ data: esign });
+let esignRecord = table("esign_records").find(
+  (record) =>
+    record["application_id"] === reviewApplicationId &&
+    record["document_name"] === esign.document_type,
+)!;
+assert.equal(esignRecord["status"], "sent");
+await saveEsignRecord({
+  data: { ...esign, id: esignRecord["id"], status: "completed", notes: "Signed" },
+});
+esignRecord = table("esign_records").find((record) => record["id"] === esignRecord["id"])!;
+assert.equal(esignRecord["status"], "completed");
+assert.equal(esignRecord["notes"], "Signed");
+await deleteEsignRecord({ data: { id: esignRecord["id"], application_id: reviewApplicationId } });
+assert.equal(
+  table("esign_records").some((record) => record["id"] === esignRecord["id"]),
+  false,
+);
+console.log("Public application and handoff tests passed.");
