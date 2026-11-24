@@ -143,6 +143,7 @@ export const RESOURCE_VIEWS: Record<ResourceKey, ResourceView> = {
       { name: "approval_state", label: "Approval state", type: "select", options: APPROVAL_STATES, required: true },
       { name: "effective_date", label: "Effective date", type: "date", column: true },
       { name: "description", label: "Description", type: "textarea" },
+      { name: "change_summary", label: "Change summary", type: "textarea" },
       { name: "document_url", label: "Document link", type: "text" },
       { name: "requires_signature", label: "Requires signature", type: "boolean", column: true },
       { name: "published", label: "Published", type: "boolean", column: true },

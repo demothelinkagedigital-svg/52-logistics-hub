@@ -822,8 +822,9 @@ function seed(): Tables {
         id: uid(),
         version_label: "2026.1",
         title: "Driver Handbook",
-        approval_state: "draft",
-        description: "Current handbook effective January 2026.",
+        approval_state: "approved",
+        description: "Sample handbook for demonstration only; verify all policies before use.",
+        change_summary: "Initial sample handbook release.",
         document_url: null,
         storage_path: null,
         effective_date: daysAgo(60).slice(0, 10),
@@ -832,6 +833,8 @@ function seed(): Tables {
         archived_at: null,
       },
     ],
+    handbook_signatures: [],
+    demo_migrations: [{ id: "handbook-sample-approved-v1" }],
     safety_resources: [
       [
         "Pre-trip inspection checklist",
@@ -1059,6 +1062,27 @@ export function getDb(): Tables {
         const parsed = JSON.parse(raw) as Tables;
         const fresh = seed();
         seeding = false;
+        // Only upgrade the untouched legacy sample, never a user-edited release.
+        const migrations = parsed["demo_migrations"] ?? [];
+        if (!migrations.some((row) => row["id"] === "handbook-sample-approved-v1")) {
+          const sampleId = fresh["handbook_versions"]![0]!["id"];
+          const sample = (parsed["handbook_versions"] ?? []).find((row) =>
+            row["id"] === sampleId && row["version_label"] === "2026.1" &&
+            row["title"] === "Driver Handbook" &&
+            row["description"] === "Current handbook effective January 2026." &&
+            (row["approval_state"] === "draft" || row["approval_state"] == null) &&
+            row["published"] === true && row["archived_at"] == null &&
+            row["document_url"] == null && row["storage_path"] == null &&
+            row["requires_signature"] === true && row["updated_at"] == null,
+          );
+          if (sample) {
+            sample["approval_state"] = "approved";
+            sample["description"] = "Sample handbook for demonstration only; verify all policies before use.";
+            sample["change_summary"] = "Initial sample handbook release.";
+          }
+          migrations.push({ id: "handbook-sample-approved-v1" });
+          parsed["demo_migrations"] = migrations;
+        }
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
         for (const name of ["handbook_versions", "safety_resources"]) {

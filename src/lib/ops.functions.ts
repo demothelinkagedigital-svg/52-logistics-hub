@@ -75,7 +75,7 @@ export const RESOURCES = {
     table: "handbook_versions",
     label: "Handbook version",
     columns: [
-      "version_label","title","description","document_url","storage_path","effective_date",
+      "version_label","title","description","change_summary","document_url","storage_path","effective_date",
       "requires_signature","published","archived_at","approval_state",
     ],
     order: { column: "effective_date", ascending: false },

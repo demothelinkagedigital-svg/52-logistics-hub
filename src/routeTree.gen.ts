@@ -25,6 +25,7 @@ import { Route as SiteTermsRouteImport } from './routes/_site/terms'
 import { Route as PortalApplicationRouteImport } from './routes/portal.application'
 import { Route as AuthenticatedPortalIndexRouteImport } from './routes/_authenticated/portal.index'
 import { Route as AuthenticatedPortalDriverRouteImport } from './routes/_authenticated/portal.driver'
+import { Route as AuthenticatedPortalHandbookRouteImport } from './routes/_authenticated/portal.handbook'
 import { Route as AuthenticatedPortalNotificationsRouteImport } from './routes/_authenticated/portal.notifications'
 import { Route as SiteApplyIndexRouteImport } from './routes/_site/apply.index'
 import { Route as SiteCareersIndexRouteImport } from './routes/_site/careers.index'
@@ -119,6 +120,12 @@ const AuthenticatedPortalDriverRoute =
     path: '/portal/driver',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPortalHandbookRoute =
+  AuthenticatedPortalHandbookRouteImport.update({
+    id: '/portal/handbook',
+    path: '/portal/handbook',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPortalNotificationsRoute =
   AuthenticatedPortalNotificationsRouteImport.update({
     id: '/portal/notifications',
@@ -208,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof SiteTermsRoute
   '/portal/application': typeof PortalApplicationRoute
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
+  '/portal/handbook': typeof AuthenticatedPortalHandbookRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/careers/$slug': typeof SiteCareersSlugRoute
   '/portal/': typeof AuthenticatedPortalIndexRoute
@@ -236,6 +244,7 @@ export interface FileRoutesByTo {
   '/terms': typeof SiteTermsRoute
   '/portal/application': typeof PortalApplicationRoute
   '/portal/driver': typeof AuthenticatedPortalDriverRoute
+  '/portal/handbook': typeof AuthenticatedPortalHandbookRoute
   '/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/careers/$slug': typeof SiteCareersSlugRoute
   '/portal': typeof AuthenticatedPortalIndexRoute
@@ -268,6 +277,7 @@ export interface FileRoutesById {
   '/portal/application': typeof PortalApplicationRoute
   '/_site/': typeof SiteIndexRoute
   '/_authenticated/portal/driver': typeof AuthenticatedPortalDriverRoute
+  '/_authenticated/portal/handbook': typeof AuthenticatedPortalHandbookRoute
   '/_authenticated/portal/notifications': typeof AuthenticatedPortalNotificationsRoute
   '/_site/careers/$slug': typeof SiteCareersSlugRoute
   '/_authenticated/portal/': typeof AuthenticatedPortalIndexRoute
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/portal/application'
     | '/portal/driver'
+    | '/portal/handbook'
     | '/portal/notifications'
     | '/careers/$slug'
     | '/portal/'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/portal/application'
     | '/portal/driver'
+    | '/portal/handbook'
     | '/portal/notifications'
     | '/careers/$slug'
     | '/portal'
@@ -358,6 +370,7 @@ export interface FileRouteTypes {
     | '/portal/application'
     | '/_site/'
     | '/_authenticated/portal/driver'
+    | '/_authenticated/portal/handbook'
     | '/_authenticated/portal/notifications'
     | '/_site/careers/$slug'
     | '/_authenticated/portal/'
@@ -495,6 +508,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPortalDriverRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/portal/handbook': {
+      id: '/_authenticated/portal/handbook'
+      path: '/portal/handbook'
+      fullPath: '/portal/handbook'
+      preLoaderRoute: typeof AuthenticatedPortalHandbookRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/portal/notifications': {
       id: '/_authenticated/portal/notifications'
       path: '/portal/notifications'
@@ -591,6 +611,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedPortalDriverRoute: typeof AuthenticatedPortalDriverRoute
+  AuthenticatedPortalHandbookRoute: typeof AuthenticatedPortalHandbookRoute
   AuthenticatedPortalNotificationsRoute: typeof AuthenticatedPortalNotificationsRoute
   AuthenticatedPortalIndexRoute: typeof AuthenticatedPortalIndexRoute
   AuthenticatedPortalAcademySlugRoute: typeof AuthenticatedPortalAcademySlugRoute
@@ -605,6 +626,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPortalDriverRoute: AuthenticatedPortalDriverRoute,
+  AuthenticatedPortalHandbookRoute: AuthenticatedPortalHandbookRoute,
   AuthenticatedPortalNotificationsRoute: AuthenticatedPortalNotificationsRoute,
   AuthenticatedPortalIndexRoute: AuthenticatedPortalIndexRoute,
   AuthenticatedPortalAcademySlugRoute: AuthenticatedPortalAcademySlugRoute,

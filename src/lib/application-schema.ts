@@ -156,6 +156,16 @@ export function applicationStatusLabel(status: string): string {
   return APPLICATION_STATUS_LABELS[status] ?? status;
 }
 
+export const handbookSignSchema = z
+  .object({
+    version_id: z.string().uuid(),
+    signature_name: z.string().trim().min(2).max(120),
+    agreed: z.boolean().refine((agreed) => agreed, "You must agree to the acknowledgement."),
+  })
+  .strict();
+
+export const handbookReceiptSchema = z.object({ id: z.string().uuid() }).strict();
+
 export const ESIGN_STATUSES = [
   "not_sent",
   "sent",
