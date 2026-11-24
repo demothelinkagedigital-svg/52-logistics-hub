@@ -41,6 +41,7 @@ export type ResourceView = {
 };
 
 const PUBLISH_STATUS = ["draft", "published", "paused", "closed", "archived"] as const;
+const APPROVAL_STATES = ["draft", "under_review", "approved", "retired"] as const;
 
 export const RESOURCE_VIEWS: Record<ResourceKey, ResourceView> = {
   jobs: {
@@ -116,10 +117,12 @@ export const RESOURCE_VIEWS: Record<ResourceKey, ResourceView> = {
     title: "Safety Center content",
     blurb: "Versioned safety topics, with acknowledgement requirements and publish control.",
     primary: "title",
+    statusField: "approval_state",
     orderable: true,
     fields: [
       { name: "title", label: "Title", type: "text", required: true, column: true },
       { name: "category", label: "Category", type: "text", column: true },
+      { name: "approval_state", label: "Approval state", type: "select", options: APPROVAL_STATES, required: true },
       { name: "summary", label: "Summary", type: "textarea" },
       { name: "body", label: "Body", type: "richtext" },
       { name: "requires_acknowledgement", label: "Requires acknowledgement", type: "boolean", column: true },
@@ -132,10 +135,12 @@ export const RESOURCE_VIEWS: Record<ResourceKey, ResourceView> = {
     title: "Handbook versions",
     blurb: "Version-controlled handbook releases. Drivers sign electronically before download.",
     primary: "version_label",
+    statusField: "approval_state",
     archivable: true,
     fields: [
       { name: "version_label", label: "Version", type: "text", required: true, column: true },
       { name: "title", label: "Title", type: "text", required: true, column: true },
+      { name: "approval_state", label: "Approval state", type: "select", options: APPROVAL_STATES, required: true },
       { name: "effective_date", label: "Effective date", type: "date", column: true },
       { name: "description", label: "Description", type: "textarea" },
       { name: "document_url", label: "Document link", type: "text" },

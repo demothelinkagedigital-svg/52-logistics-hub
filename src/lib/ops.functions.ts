@@ -66,7 +66,7 @@ export const RESOURCES = {
   safety_resources: {
     table: "safety_resources",
     label: "Safety resource",
-    columns: ["title","summary","body","category","requires_acknowledgement","published","sort_order"],
+    columns: ["title","summary","body","category","requires_acknowledgement","published","sort_order","approval_state"],
     order: { column: "sort_order", ascending: true },
     read: "content",
     write: "content",
@@ -76,7 +76,7 @@ export const RESOURCES = {
     label: "Handbook version",
     columns: [
       "version_label","title","description","document_url","storage_path","effective_date",
-      "requires_signature","published","archived_at",
+      "requires_signature","published","archived_at","approval_state",
     ],
     order: { column: "effective_date", ascending: false },
     read: "content",
@@ -200,6 +200,20 @@ function pick(values: Record<string, unknown>, columns: readonly string[]) {
   return out;
 }
 
+const approvalState = z.enum(["draft", "under_review", "approved", "retired"]);
+
+async function validateSlug(db: LooseClient, def: ResourceDef, slug: unknown, id?: string) {
+  if (typeof slug !== "string" || !/^[a-z0-9-]+$/.test(slug)) {
+    throw new Error("Slug must contain only lowercase letters, digits and hyphens.");
+  }
+  let query = db.from(def.table).select("id").eq("slug", slug);
+  if (def.archiveColumn) query = query.is(def.archiveColumn, null);
+  if (id) query = query.neq("id", id);
+  const { data: matches, error } = await query.limit(1);
+  if (error) throw new Error(error.message);
+  if (matches.length) throw new Error("That slug is already used");
+}
+
 /* -------------------------------- read ----------------------------------- */
 
 export const listResource = createServerFn({ method: "GET" })
@@ -239,6 +253,13 @@ export const saveResource = createServerFn({ method: "POST" })
 
     const payload = pick(data.values, def.columns);
     if (!Object.keys(payload).length) throw new Error("Nothing to save.");
+    if (def.columns.includes("slug") && ("slug" in payload || !data.id)) {
+      await validateSlug(db, def, payload["slug"], data.id);
+    }
+    if (data.resource === "handbook_versions" || data.resource === "safety_resources") {
+      if (!data.id && payload["approval_state"] === undefined) payload["approval_state"] = "draft";
+      if ("approval_state" in payload) approvalState.parse(payload["approval_state"]);
+    }
 
     let recordId = data.id ?? null;
     if (data.id) {
@@ -278,6 +299,11 @@ export const archiveResource = createServerFn({ method: "POST" })
     await assertAccess(db, userId, def.write);
 
     if (def.archiveColumn) {
+      if (data.restore && def.columns.includes("slug")) {
+        const { data: row, error } = await db.from(def.table).select("slug").eq("id", data.id).single();
+        if (error) throw new Error(error.message);
+        await validateSlug(db, def, row.slug, data.id);
+      }
       const { error } = await db
         .from(def.table)
         .update({
@@ -329,6 +355,7 @@ export const duplicateResource = createServerFn({ method: "POST" })
     if ("title" in copy && typeof copy["title"] === "string") copy["title"] = `${copy["title"]} (copy)`;
     if ("published" in copy) copy["published"] = false;
     if ("status" in copy) copy["status"] = "draft";
+    if (def.columns.includes("slug")) await validateSlug(db, def, copy["slug"]);
 
     const { data: inserted, error: insErr } = await db
       .from(def.table)

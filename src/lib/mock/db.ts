@@ -822,6 +822,7 @@ function seed(): Tables {
         id: uid(),
         version_label: "2026.1",
         title: "Driver Handbook",
+        approval_state: "draft",
         description: "Current handbook effective January 2026.",
         document_url: null,
         storage_path: null,
@@ -852,6 +853,7 @@ function seed(): Tables {
       title,
       summary,
       body: `${summary} This demo resource stands in for the full policy document.`,
+      approval_state: "draft",
       category,
       requires_acknowledgement: i === 2,
       published: true,
@@ -1059,6 +1061,9 @@ export function getDb(): Tables {
         seeding = false;
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
+        for (const name of ["handbook_versions", "safety_resources"]) {
+          for (const row of parsed[name] ?? []) row["approval_state"] ??= "draft";
+        }
         const legacyStatuses: Record<string, string> = {
           submitted: "new",
           under_review: "ready_for_review",
