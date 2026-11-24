@@ -821,7 +821,7 @@ function seed(): Tables {
       {
         id: uid(),
         version_label: "2026.1",
-        title: "Driver Handbook",
+        title: "Driver Handbook (sample content)",
         approval_state: "approved",
         description: "Sample handbook for demonstration only; verify all policies before use.",
         change_summary: "Initial sample handbook release.",
@@ -1076,6 +1076,7 @@ export function getDb(): Tables {
             row["requires_signature"] === true && row["updated_at"] == null,
           );
           if (sample) {
+            sample["title"] = "Driver Handbook (sample content)";
             sample["approval_state"] = "approved";
             sample["description"] = "Sample handbook for demonstration only; verify all policies before use.";
             sample["change_summary"] = "Initial sample handbook release.";

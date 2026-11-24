@@ -16,11 +16,16 @@ Object.defineProperty(globalThis, "window", {
     },
   },
 });
+Object.defineProperty(globalThis, "navigator", {
+  configurable: true,
+  value: { userAgent: "handbook-test/1.0" },
+});
 if (!globalThis.crypto?.subtle) {
   Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
 }
 
 resetDb();
+assert.deepEqual(table("handbook_acknowledgements"), [], "seed must not contain acknowledgements");
 const driverId = DEMO_USERS.find((user) => user.roles.includes("driver"))!.id;
 const recruiterId = DEMO_USERS.find((user) => user.roles.includes("recruiter"))!.id;
 const contentManagerId = DEMO_USERS.find((user) => user.roles.includes("content_manager"))!.id;
@@ -32,6 +37,9 @@ const dateOffset = (days: number) =>
   new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 const versions = table("handbook_versions");
 const current = versions[0]!;
+assert.equal(current["title"], "Driver Handbook (sample content)");
+assert.equal(current["approval_state"], "approved");
+assert.equal(current["published"], true);
 current["effective_date"] = dateOffset(-20);
 const currentId = current["id"] as string;
 const draftId = "aaaaaaaa-0000-4000-a000-000000000001";
@@ -87,8 +95,9 @@ const expectedContent = JSON.stringify([
   { title: "Second & final", body: "Second body" },
 ]);
 const expectedHash = createHash("sha256").update(expectedContent, "utf8").digest("hex");
-const expectedStatement =
-  "I acknowledge that I have received, read, and understand the Driver Handbook, and I agree to comply with its policies.";
+const expectedStatement = (label: string) =>
+  `I have read and understand the 52 Logistics Driver Handbook, version ${label}, and agree to follow its policies.`;
+const lockedDownloadError = { message: "Sign the current handbook to unlock the download" };
 const signData = { version_id: currentId, signature_name: "  Alicia Grant  ", agreed: true };
 
 let view = await handbook.getHandbook();
@@ -104,7 +113,7 @@ assert.deepEqual(
 assert.equal(view.signature, null);
 assert.deepEqual(view.history, []);
 assert.equal(view.canSign, true);
-await assert.rejects(handbook.getHandbookDownload(), /sign the current handbook/i);
+await assert.rejects(handbook.getHandbookDownload(), lockedDownloadError);
 
 for (const versionId of ["aaaaaaaa-0000-4000-a000-000000000099", draftId]) {
   await assert.rejects(
@@ -121,7 +130,7 @@ for (const userId of [contentManagerId, recruiterId]) {
   setDemoUserId(userId);
   await assert.rejects(handbook.signHandbook({ data: signData }), /only drivers/i);
 }
-assert.equal(table("handbook_signatures").length, 0);
+assert.equal(table("handbook_acknowledgements").length, 0);
 assert.equal(table("audit_logs").filter((row) => row["action"] === "handbook_signed").length, 0);
 
 setDemoUserId(driverId);
@@ -131,26 +140,40 @@ const [receipt, duplicate] = await Promise.all([
   handbook.signHandbook({ data: signData }),
 ]);
 assert.deepEqual(duplicate, receipt);
-assert.equal(receipt["user_id"], driverId);
-assert.equal(receipt["version_id"], currentId);
-assert.equal(receipt["signature_name"], "Alicia Grant");
+assert.match(
+  receipt["id"],
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+);
 assert.ok(!Number.isNaN(Date.parse(receipt["signed_at"])));
-assert.equal(handbook.HANDBOOK_ACKNOWLEDGEMENT_STATEMENT, expectedStatement);
-assert.equal(receipt["acknowledgement_statement"], expectedStatement);
-assert.match(receipt["content_hash"], /^[0-9a-f]{64}$/);
-assert.equal(receipt["content_hash"], expectedHash);
-assert.equal(receipt["effective_date"], current["effective_date"]);
-assert.equal(receipt["version_label"], current["version_label"]);
+assert.equal(
+  handbook.handbookStatement(current["version_label"]),
+  expectedStatement(current["version_label"]),
+);
+assert.deepEqual(receipt, {
+  id: receipt["id"],
+  user_id: driverId,
+  handbook_version_id: currentId,
+  version_label: current["version_label"],
+  handbook_title: current["title"],
+  statement: expectedStatement(current["version_label"]),
+  signature_name: "Alicia Grant",
+  signed_at: receipt["signed_at"],
+  content_hash: expectedHash,
+  source: { method: "web", user_agent: "handbook-test/1.0" },
+  created_at: receipt["signed_at"],
+  effective_date: current["effective_date"],
+});
+assert.deepEqual(table("handbook_acknowledgements"), [receipt]);
 assert.deepEqual(await handbook.getHandbookReceipt({ data: { id: receipt["id"] } }), receipt);
 assert.deepEqual(
   await handbook.signHandbook({ data: { ...signData, signature_name: "Different Name" } }),
   receipt,
 );
-assert.equal(table("handbook_signatures").length, 1);
+assert.equal(table("handbook_acknowledgements").length, 1);
 const audits = table("audit_logs").filter((row) => row["action"] === "handbook_signed");
 assert.equal(audits.length, 1);
 assert.equal(audits[0]!["actor_id"], driverId);
-assert.equal(audits[0]!["target_type"], "handbook_signatures");
+assert.equal(audits[0]!["target_type"], "handbook_acknowledgements");
 assert.equal(audits[0]!["target_id"], receipt["id"]);
 assert.equal(audits[0]!["created_at"], receipt["signed_at"]);
 assert.deepEqual(audits[0]!["metadata"], { version_id: currentId, content_hash: expectedHash });
@@ -182,13 +205,16 @@ assert.equal(view.version?.["id"], newerId);
 assert.equal(view.signature, null);
 assert.equal(view.canSign, true);
 assert.deepEqual(view.history, [receipt]);
-await assert.rejects(handbook.getHandbookDownload(), /sign the current handbook/i);
+await assert.rejects(handbook.getHandbookDownload(), lockedDownloadError);
 await assert.rejects(handbook.signHandbook({ data: signData }), /no longer current/i);
 assert.deepEqual(await handbook.getHandbookReceipt({ data: { id: receipt["id"] } }), receipt);
 const newReceipt = await handbook.signHandbook({ data: { ...signData, version_id: newerId } });
-assert.equal(newReceipt["version_id"], newerId);
+assert.equal(newReceipt["handbook_version_id"], newerId);
+assert.equal(newReceipt["version_label"], "New release");
+assert.equal(newReceipt["statement"], expectedStatement("New release"));
+assert.deepEqual(newReceipt["source"], { method: "web", user_agent: "handbook-test/1.0" });
 assert.notEqual(newReceipt["id"], receipt["id"]);
-assert.equal(table("handbook_signatures").length, 2);
+assert.equal(table("handbook_acknowledgements").length, 2);
 const history = (await handbook.getHandbook()).history;
 assert.equal(history.length, 2);
 assert.deepEqual(
@@ -206,7 +232,7 @@ assert.ok((await handbook.getHandbookDownload()).html);
 assert.deepEqual(
   Object.keys(handbook).sort(),
   [
-    "HANDBOOK_ACKNOWLEDGEMENT_STATEMENT",
+    "handbookStatement",
     "getHandbook",
     "getHandbookDownload",
     "getHandbookReceipt",

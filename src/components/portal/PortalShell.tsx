@@ -23,7 +23,7 @@ import { listNotifications } from "@/lib/notifications.functions";
 import { cn } from "@/lib/utils";
 
 export function PortalShell({ children }: { children: ReactNode }) {
-  const { roles, isAdmin, isRecruiter, isDriver, isContent } = useSession();
+  const { roles, isAdmin, isRecruiter, isDriver } = useSession();
   const signOut = useSignOut();
   const [open, setOpen] = useState(false);
   const fetchNotifications = useServerFn(listNotifications);
@@ -39,9 +39,9 @@ export function PortalShell({ children }: { children: ReactNode }) {
     { to: "/portal/driver" as const, label: "Driver hub", icon: Truck, show: isDriver },
     {
       to: "/portal/handbook" as const,
-      label: "Driver handbook",
+      label: "Handbook",
       icon: BookOpen,
-      show: isDriver || isContent,
+      show: isDriver || roles.includes("administrator") || roles.includes("content_manager"),
     },
     {
       to: "/portal/academy" as const,

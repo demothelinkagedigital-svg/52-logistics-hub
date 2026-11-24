@@ -171,12 +171,14 @@ function DriverHub() {
                     {String(handbook.data.version["version_label"] ?? "Current version")}
                   </p>
                   {isDriver && handbook.data.signature ? (
-                    <Badge variant="secondary">Signed</Badge>
-                  ) : isDriver && handbook.data.canSign ? (
+                    <Badge variant="secondary">
+                      Signed {String(handbook.data.version["version_label"])} on{" "}
+                      {new Date(handbook.data.signature["signed_at"]).toLocaleDateString()}
+                    </Badge>
+                  ) : isDriver ? (
                     <Badge>
-                      {handbook.data.version["requires_signature"]
-                        ? "Action required"
-                        : "Acknowledgement available"}
+                      Action required: sign handbook{" "}
+                      {String(handbook.data.version["version_label"])}
                     </Badge>
                   ) : null}
                 </div>

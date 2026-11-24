@@ -36,6 +36,7 @@ type Version = {
   title: string;
   version_label: string;
   effective_date?: string | null;
+  requires_signature?: boolean;
   description?: string | null;
   change_summary?: string | null;
 };
@@ -120,7 +121,8 @@ function downloadReceipt(receipt: Signature, driverName: string | undefined) {
 }
 
 function HandbookPage() {
-  const { user, isDriver, isContent, isLoading: sessionLoading } = useSession();
+  const { user, roles, isDriver, isLoading: sessionLoading } = useSession();
+  const isContent = roles.includes("administrator") || roles.includes("content_manager");
   const fetchHandbook = useServerFn(getHandbook);
   const submitSignature = useServerFn(signHandbook);
   const fetchDownload = useServerFn(getHandbookDownload);
@@ -244,6 +246,7 @@ function HandbookPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                {version.requires_signature ? <Badge>Signature required</Badge> : null}
                 {isDriver ? (
                   signature ? (
                     <Badge variant="secondary">Signed</Badge>
