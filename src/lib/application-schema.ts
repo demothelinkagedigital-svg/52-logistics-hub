@@ -84,6 +84,11 @@ export const applicationDraftSchema = z.object({
 });
 export const portalDraftSchema = applicationDraftSchema.omit({ signature_signed_at: true });
 
+export const applicationAssignmentSchema = z.object({
+  assigned_recruiter_id: z.string().uuid().nullable(),
+});
+export type ApplicationAssignment = z.infer<typeof applicationAssignmentSchema>;
+
 export const applicationAccessSchema = z.object({
   user_id: z.string().uuid().nullable(),
   resume_token_hash: z.string().nullable(),
@@ -101,40 +106,55 @@ export const applicationEmployerSchema = employerSchema.merge(applicationRelated
 export const applicationDocumentSchema = z.object({
   doc_type: z.enum(["medical_card", "resume"]),
   storage_path: z.string().max(400),
-  file_name: z.string().max(255).regex(/\.(pdf|jpe?g|png)$/i, "Upload a PDF, JPG, or PNG file."),
+  file_name: z
+    .string()
+    .max(255)
+    .regex(/\.(pdf|jpe?g|png)$/i, "Upload a PDF, JPG, or PNG file."),
   mime_type: z.enum(["application/pdf", "image/jpeg", "image/png"], {
     errorMap: () => ({ message: "Upload a PDF, JPG, or PNG file." }),
   }),
-  size_bytes: z.number({ required_error: "File size is required." })
-    .int().nonnegative().max(10 * 1024 * 1024, "Files must be 10 MiB or smaller."),
+  size_bytes: z
+    .number({ required_error: "File size is required." })
+    .int()
+    .nonnegative()
+    .max(10 * 1024 * 1024, "Files must be 10 MiB or smaller."),
 });
-export const applicationDocumentRecordSchema = applicationDocumentSchema.merge(applicationRelatedOwnershipSchema);
+export const applicationDocumentRecordSchema = applicationDocumentSchema.merge(
+  applicationRelatedOwnershipSchema,
+);
 
 export const APPLICATION_STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  submitted: "Submitted",
-  under_review: "Under review",
-  screening: "Screening",
-  interview: "Interview",
-  conditional_offer: "Conditional offer",
-  background_check: "Background check",
-  onboarding: "Onboarding",
+  new: "New",
+  incomplete: "Incomplete",
+  ready_for_review: "Ready for Review",
+  ready_to_invite_fadv: "Ready to Invite to First Advantage",
+  fadv_invitation_sent: "First Advantage Invitation Sent",
+  fadv_in_progress: "Candidate Completing First Advantage",
+  screening_complete_review: "Screening Complete – Management Review",
   hired: "Hired",
-  rejected: "Not selected",
-  withdrawn: "Withdrawn",
+  rejected: "Rejected",
+  archived: "Archived",
 };
 
-export const APPLICATION_STATUSES = Object.keys(APPLICATION_STATUS_LABELS);
-
-export const SCREENING_STATUSES = [
-  "not_started",
-  "initiated",
-  "pending",
-  "clear",
-  "review_required",
-  "failed",
-  "cancelled",
+export const APPLICATION_STATUS_ORDER = [
+  "new",
+  "incomplete",
+  "ready_for_review",
+  "ready_to_invite_fadv",
+  "fadv_invitation_sent",
+  "fadv_in_progress",
+  "screening_complete_review",
+  "hired",
+  "rejected",
+  "archived",
 ] as const;
+
+export const APPLICATION_STATUSES = APPLICATION_STATUS_ORDER;
+
+export function applicationStatusLabel(status: string): string {
+  if (status === "draft" || status === "corrections_requested") return "Incomplete";
+  return APPLICATION_STATUS_LABELS[status] ?? status;
+}
 
 export const ESIGN_STATUSES = [
   "not_sent",

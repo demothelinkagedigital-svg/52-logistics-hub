@@ -1,9 +1,24 @@
 import assert from "node:assert/strict";
 import { getDb, resetDb, table } from "../src/lib/mock/db";
 import { hashToken } from "../src/lib/application-access";
+import { DEMO_USERS } from "../src/lib/mock/db";
+import { setDemoUserId } from "../src/lib/mock/client";
 import {
-  startPublicApplication, getApplicationByToken, saveApplicationDraftByToken,
-  saveEmployersByToken, recordDocumentByToken, deleteDocumentByToken, submitApplicationByToken,
+  getApplicationDetail,
+  assignApplicationRecruiter,
+  exportRecruitingApplications,
+  saveFirstAdvantageHandoff,
+  saveEsignRecord,
+  deleteEsignRecord,
+} from "../src/lib/recruiting.functions";
+import {
+  startPublicApplication,
+  getApplicationByToken,
+  saveApplicationDraftByToken,
+  saveEmployersByToken,
+  recordDocumentByToken,
+  deleteDocumentByToken,
+  submitApplicationByToken,
 } from "../src/lib/public-application.functions";
 
 resetDb();
@@ -20,15 +35,30 @@ assert.match(first.resume_token, /^[A-Za-z0-9_-]{43}$/);
 const token = first.resume_token;
 const firstHash = await hashToken(token);
 const app = table("applications").find((row) => row["resume_token_hash"] === firstHash)!;
-assert.equal(table("applications").filter((row) => row["resume_token_hash"] === firstHash).length, 1);
+assert.equal(
+  table("applications").filter((row) => row["resume_token_hash"] === firstHash).length,
+  1,
+);
 assert.equal(app["user_id"], null);
 const setting = table("site_settings").find((row) => row["key"] === "application_resume_days")!;
 setting["value"] = "5";
 app["resume_expires_at"] = new Date(Date.now() + 1000).toISOString();
 
 await Promise.all([
-  saveApplicationDraftByToken({ data: { token, values: { current_step: 3, schedule_availability: ["Weekdays"], start_availability: "Two weeks", medical_card_status: "current" } } }),
-  saveApplicationDraftByToken({ data: { token, values: { additional_notes: "Available for linehaul" } } }),
+  saveApplicationDraftByToken({
+    data: {
+      token,
+      values: {
+        current_step: 3,
+        schedule_availability: ["Weekdays"],
+        start_availability: "Two weeks",
+        medical_card_status: "current",
+      },
+    },
+  }),
+  saveApplicationDraftByToken({
+    data: { token, values: { additional_notes: "Available for linehaul" } },
+  }),
 ]);
 assert.ok(Date.parse(app["resume_expires_at"]) > Date.now() + 4 * 86400000);
 assert.ok(Date.parse(app["resume_expires_at"]) <= Date.now() + 5 * 86400000);
@@ -37,7 +67,14 @@ await Promise.all([
   saveEmployersByToken({ data: { token, employers: [employer] } }),
   saveEmployersByToken({ data: { token, employers: [employer] } }),
 ]);
-const doc = { token, doc_type: "resume" as const, storage_path: "public-app/resume.pdf", file_name: "resume.pdf", mime_type: "application/pdf" as const, size_bytes: 123 };
+const doc = {
+  token,
+  doc_type: "resume" as const,
+  storage_path: "public-app/resume.pdf",
+  file_name: "resume.pdf",
+  mime_type: "application/pdf" as const,
+  size_bytes: 123,
+};
 await Promise.all([recordDocumentByToken({ data: doc }), recordDocumentByToken({ data: doc })]);
 let loaded = await getApplicationByToken({ data: { token } });
 assert.deepEqual(loaded.application?.["schedule_availability"], ["Weekdays"]);
@@ -47,7 +84,9 @@ assert.equal(loaded.application?.["additional_notes"], "Available for linehaul")
 assert.equal(loaded.employers?.length, 1);
 assert.equal(loaded.documents?.length, 1);
 assert.equal(loaded.application?.["resume_token_hash"], undefined);
-await deleteDocumentByToken({ data: { token: second.resume_token, id: loaded.documents![0]!["id"] } });
+await deleteDocumentByToken({
+  data: { token: second.resume_token, id: loaded.documents![0]!["id"] },
+});
 assert.equal((await getApplicationByToken({ data: { token } })).documents?.length, 1);
 await deleteDocumentByToken({ data: { token, id: loaded.documents![0]!["id"] } });
 loaded = await getApplicationByToken({ data: { token } });
@@ -58,32 +97,181 @@ const submissions = await Promise.allSettled([
   submitApplicationByToken({ data: { token, signature_name: "Test Applicant" } }),
 ]);
 assert.equal(submissions.filter((result) => result.status === "fulfilled").length, 1);
-assert.equal(table("applications").filter((row) => row["reference_code"] === first.reference_code && row["status"] === "submitted").length, 1);
+assert.equal(
+  table("applications").filter(
+    (row) => row["reference_code"] === first.reference_code && row["status"] === "new",
+  ).length,
+  1,
+);
 assert.deepEqual(app["schedule_availability"], ["Weekdays"]);
 assert.equal(app["start_availability"], "Two weeks");
 assert.equal(app["medical_card_status"], "current");
 assert.equal(app["signature_signed_at"], app["submitted_at"]);
-for (const status of ["submitted", "under_review", "interview", "hired", "rejected", "archived", "unknown_status"]) {
+for (const status of [
+  "new",
+  "ready_for_review",
+  "hired",
+  "rejected",
+  "archived",
+  "unknown_status",
+]) {
   app["status"] = status;
   const summary = await getApplicationByToken({ data: { token } });
-  assert.deepEqual(summary, { reference: first.reference_code, position: null, submitted_at: app["submitted_at"], label: "Application received" });
+  assert.deepEqual(summary, {
+    reference: first.reference_code,
+    position: null,
+    submitted_at: app["submitted_at"],
+    label: "Application received",
+  });
   assert.equal("status" in summary, false);
 }
-await assert.rejects(saveApplicationDraftByToken({ data: { token, values: { first_name: "Changed" } } }), /locked/);
+await assert.rejects(
+  saveApplicationDraftByToken({ data: { token, values: { first_name: "Changed" } } }),
+  /locked/,
+);
 
 const secondHash = await hashToken(second.resume_token);
 const expired = table("applications").find((row) => row["resume_token_hash"] === secondHash)!;
 expired["resume_expires_at"] = new Date(Date.now() - 1).toISOString();
 const failure = async (value: string) => {
-  try { await getApplicationByToken({ data: { token: value } }); assert.fail("Expected invalid token"); }
-  catch (error) { return (error as Error).message; }
+  try {
+    await getApplicationByToken({ data: { token: value } });
+    assert.fail("Expected invalid token");
+  } catch (error) {
+    return (error as Error).message;
+  }
 };
 const expiredError = await failure(second.resume_token);
 assert.match(expiredError, /invalid or expired/i);
 assert.equal(await failure("wrong-token"), expiredError);
 const json = JSON.stringify(getDb());
-for (const value of [demoToken, first.resume_token, second.resume_token]) assert.equal(json.includes(value), false);
+for (const value of [demoToken, first.resume_token, second.resume_token])
+  assert.equal(json.includes(value), false);
 
 await Promise.all(Array.from({ length: 25 }, (_, i) => failure(`wrong-${i}`)));
 assert.equal(await failure(token), expiredError);
-console.log("Public application tests passed.");
+
+const storage = new Map<string, string>();
+Object.defineProperty(globalThis, "window", {
+  configurable: true,
+  value: {
+    localStorage: {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    },
+  },
+});
+resetDb();
+const recruiterId = DEMO_USERS.find((user) => user.roles.includes("recruiter"))!.id;
+const contentManagerId = DEMO_USERS.find((user) => user.roles.includes("content_manager"))!.id;
+setDemoUserId(recruiterId);
+const reviewApplicationId = "a0000000-0000-4000-a000-000000000005";
+await assignApplicationRecruiter({
+  data: { id: reviewApplicationId, assigned_recruiter_id: recruiterId },
+});
+const assignedApplication = table("applications").find((row) => row["id"] === reviewApplicationId)!;
+assert.equal(assignedApplication["assigned_recruiter_id"], recruiterId);
+const assignmentEvent = table("application_events").find(
+  (event) =>
+    event["application_id"] === reviewApplicationId &&
+    event["event_type"] === "recruiter_assignment",
+)!;
+assert.equal(assignmentEvent["description"], "Recruiter assignment updated");
+assert.ok(assignmentEvent["created_at"]);
+assert.deepEqual(assignmentEvent["metadata"], { from: null, to: recruiterId });
+const exported = await exportRecruitingApplications({
+  data: { application_ids: [reviewApplicationId] },
+});
+const csvRows = exported.csv.split("\r\n").map((line) => line.split(","));
+const csvHeader = csvRows[0]!.map((cell) => cell.slice(1, -1));
+assert.deepEqual(csvHeader, [
+  "reference",
+  "applicant name",
+  "opening",
+  "status label",
+  "submitted date",
+  "assigned recruiter",
+]);
+assert.equal(csvRows[1]!.length, csvHeader.length);
+assert.equal(exported.csv.includes("example.com"), false);
+assert.equal(exported.row_count, 1);
+const exportAudit = table("audit_logs").find(
+  (entry) => entry["action"] === "recruiting_applications_exported",
+)!;
+assert.equal(exportAudit["actor_id"], recruiterId);
+assert.ok(exportAudit["created_at"]);
+assert.equal(exportAudit["metadata"]["row_count"], 1);
+const handoff = {
+  application_id: reviewApplicationId,
+  invitation_date: "2026-01-12",
+  responsible_recruiter_id: recruiterId,
+  external_case_id: "CASE-4821",
+  next_check_date: "2026-01-19",
+  operational_note: "Follow up with candidate",
+  checklist: {
+    reviewed_application: true,
+    opened_employer_portal: true,
+    created_candidate_invitation: true,
+    recorded_handoff_details: true,
+    updated_application_status: false,
+  },
+};
+const existingStatus = table("applications").find((row) => row["id"] === reviewApplicationId)![
+  "status"
+];
+await saveFirstAdvantageHandoff({ data: handoff });
+const handoffEvent = table("application_events").find(
+  (event) =>
+    event["application_id"] === reviewApplicationId &&
+    event["event_type"] === "first_advantage_handoff_update",
+)!;
+assert.equal(handoffEvent["actor_id"], recruiterId);
+assert.equal(handoffEvent["description"], "First Advantage handoff updated");
+assert.equal(
+  handoffEvent["metadata"]["checklist"]["recorded_handoff_details"]["done_by"],
+  recruiterId,
+);
+assert.equal(
+  table("applications").find((row) => row["id"] === reviewApplicationId)!["status"],
+  existingStatus,
+);
+await assert.rejects(saveFirstAdvantageHandoff({ data: { ...handoff, status: "clear" } as never }));
+setDemoUserId(contentManagerId);
+await assert.rejects(getApplicationDetail({ data: { id: reviewApplicationId } }), /Forbidden/);
+await assert.rejects(saveFirstAdvantageHandoff({ data: handoff }), /Forbidden/);
+await assert.rejects(
+  exportRecruitingApplications({ data: { application_ids: [reviewApplicationId] } }),
+  /Forbidden/,
+);
+setDemoUserId(recruiterId);
+const esign = {
+  application_id: reviewApplicationId,
+  document_type: "Employment forms" as const,
+  sent_date: "2026-01-12",
+  sender_id: recruiterId,
+  external_reference_id: "DS-492",
+  completion_date: null,
+  status: "sent" as const,
+  notes: "Awaiting signature",
+};
+await saveEsignRecord({ data: esign });
+let esignRecord = table("esign_records").find(
+  (record) =>
+    record["application_id"] === reviewApplicationId &&
+    record["document_name"] === esign.document_type,
+)!;
+assert.equal(esignRecord["status"], "sent");
+await assert.rejects(saveEsignRecord({ data: { ...esign, completion_date: "2026-01-11" } }));
+await saveEsignRecord({
+  data: { ...esign, id: esignRecord["id"], status: "completed", notes: "Signed" },
+});
+esignRecord = table("esign_records").find((record) => record["id"] === esignRecord["id"])!;
+assert.equal(esignRecord["status"], "completed");
+assert.equal(esignRecord["notes"], "Signed");
+await deleteEsignRecord({ data: { id: esignRecord["id"], application_id: reviewApplicationId } });
+assert.equal(
+  table("esign_records").some((record) => record["id"] === esignRecord["id"]),
+  false,
+);
+console.log("Public application and handoff tests passed.");

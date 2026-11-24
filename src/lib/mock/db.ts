@@ -330,14 +330,14 @@ function seed(): Tables {
     {
       first: "Sandra",
       last: "Willis",
-      status: "submitted",
+      status: "new",
       step: 6,
       ref: "52L-1002",
     },
     {
       first: "Kevin",
       last: "Ortiz",
-      status: "under_review",
+      status: "ready_for_review",
       step: 6,
       ref: "52L-1003",
     },
@@ -351,7 +351,7 @@ function seed(): Tables {
     {
       first: "Raymond",
       last: "Fields",
-      status: "conditional_offer",
+      status: "screening_complete_review",
       step: 6,
       ref: "52L-1005",
     },
@@ -360,7 +360,9 @@ function seed(): Tables {
   ].map((a, i) => ({
     id: `a0000000-0000-4000-a000-00000000000${i + 1}`,
     user_id: null,
-    resume_token_hash: i === 0 ? "35a8b2102bb067e1ec0bebef45ac4e3ca920473d36e15199248e9557b27e4660" : null,
+    assigned_recruiter_id: i === 1 || i === 3 ? recruiterId : null,
+    resume_token_hash:
+      i === 0 ? "35a8b2102bb067e1ec0bebef45ac4e3ca920473d36e15199248e9557b27e4660" : null,
     resume_expires_at: i === 0 ? daysAhead(30) : null,
     source: "web",
     last_saved_at: daysAgo(3),
@@ -506,36 +508,47 @@ function seed(): Tables {
         created_at: daysAgo(5),
       },
     ],
-    application_events: applications.slice(1).flatMap((app) => [
-      {
-        id: uid(),
-        application_id: app.id,
-        actor_id: app.user_id,
-        event_type: "submitted",
-        description: "Application submitted",
-        metadata: {},
-        created_at: app.submitted_at ?? daysAgo(10),
-      },
-      {
-        id: uid(),
-        application_id: app.id,
-        actor_id: recruiterId,
-        event_type: "status_change",
-        description: `Status set to ${app.status}`,
-        metadata: { status: app.status },
-        created_at: daysAgo(3),
-      },
-    ]),
-    screening_records: [
+    application_events: [
+      ...applications.slice(1).flatMap((app) => [
+        {
+          id: uid(),
+          application_id: app.id,
+          actor_id: app.user_id,
+          event_type: "submitted",
+          description: "Application submitted",
+          metadata: {},
+          created_at: app.submitted_at ?? daysAgo(10),
+        },
+        {
+          id: uid(),
+          application_id: app.id,
+          actor_id: recruiterId,
+          event_type: "status_change",
+          description: `Status set to ${app.status}`,
+          metadata: { from: "new", to: app.status },
+          created_at: daysAgo(3),
+        },
+      ]),
       {
         id: uid(),
         application_id: applications[4]!.id,
-        status: "in_progress",
-        reference_number: "FA-88231",
-        initiated_at: daysAgo(4),
-        status_updated_at: daysAgo(2),
-        notes: "Screening in progress.",
-        updated_by: recruiterId,
+        actor_id: recruiterId,
+        event_type: "first_advantage_handoff_update",
+        description: "First Advantage handoff updated",
+        metadata: {
+          invitation_date: daysAgo(4).slice(0, 10),
+          responsible_recruiter_id: recruiterId,
+          external_case_id: "FA-88231",
+          next_check_date: daysAgo(2).slice(0, 10),
+          operational_note: "",
+          checklist: {
+            reviewed_application: { done_at: daysAgo(5), done_by: recruiterId },
+            opened_employer_portal: { done_at: daysAgo(4), done_by: recruiterId },
+            created_candidate_invitation: { done_at: daysAgo(4), done_by: recruiterId },
+            recorded_handoff_details: { done_at: daysAgo(4), done_by: recruiterId },
+            updated_application_status: { done_at: daysAgo(3), done_by: recruiterId },
+          },
+        },
         created_at: daysAgo(4),
       },
     ],
@@ -543,10 +556,10 @@ function seed(): Tables {
       {
         id: uid(),
         application_id: applications[4]!.id,
-        document_name: "Conditional offer letter",
+        document_name: "Offer letter",
         status: "sent",
         envelope_reference: "DS-4410",
-        sent_at: daysAgo(2),
+        sent_at: daysAgo(2).slice(0, 10),
         completed_at: null,
         notes: null,
         updated_by: recruiterId,
@@ -1046,30 +1059,54 @@ export function getDb(): Tables {
         seeding = false;
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
+        const legacyStatuses: Record<string, string> = {
+          submitted: "new",
+          under_review: "ready_for_review",
+          screening: "fadv_in_progress",
+          background_check: "fadv_in_progress",
+          interview: "screening_complete_review",
+          conditional_offer: "screening_complete_review",
+          onboarding: "screening_complete_review",
+          withdrawn: "archived",
+        };
         for (const app of parsed["applications"] ?? []) {
+          if (legacyStatuses[app["status"]]) app["status"] = legacyStatuses[app["status"]];
           if (app["user_id"] === undefined) app["user_id"] = null;
-          const demoDraft = app["id"] === "a0000000-0000-4000-a000-000000000001" && app["status"] === "draft";
+          if (app["assigned_recruiter_id"] === undefined) app["assigned_recruiter_id"] = null;
+          const demoDraft =
+            app["id"] === "a0000000-0000-4000-a000-000000000001" && app["status"] === "draft";
           if (app["resume_token_hash"] === undefined || (demoDraft && !app["resume_token_hash"])) {
-            app["resume_token_hash"] = demoDraft ? fresh["applications"]![0]!["resume_token_hash"] : null;
+            app["resume_token_hash"] = demoDraft
+              ? fresh["applications"]![0]!["resume_token_hash"]
+              : null;
           }
           if (app["resume_expires_at"] === undefined || (demoDraft && !app["resume_expires_at"])) {
-            app["resume_expires_at"] = demoDraft ? fresh["applications"]![0]!["resume_expires_at"] : null;
+            app["resume_expires_at"] = demoDraft
+              ? fresh["applications"]![0]!["resume_expires_at"]
+              : null;
           }
           if (app["source"] === undefined) app["source"] = "web";
           if (app["last_saved_at"] === undefined) app["last_saved_at"] = app["updated_at"] ?? null;
         }
         for (const name of ["application_employers", "application_documents"]) {
-          for (const row of parsed[name] ?? []) if (row["user_id"] === undefined) row["user_id"] = null;
+          for (const row of parsed[name] ?? [])
+            if (row["user_id"] === undefined) row["user_id"] = null;
         }
         if (!parsed["site_settings"]!.some((row) => row["key"] === "application_resume_days")) {
-          parsed["site_settings"]!.push(fresh["site_settings"]!.find((row) => row["key"] === "application_resume_days")!);
+          parsed["site_settings"]!.push(
+            fresh["site_settings"]!.find((row) => row["key"] === "application_resume_days")!,
+          );
         }
         const faqAnswers: Record<string, string> = {
-          "How do I apply?": "Choose an opening on the Careers page and complete the secure application. You may save and return using your private resume link.",
-          "What happens after I apply?": "Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.",
-          "Can I apply from my phone?": "Yes. The complete application, signature, save/resume, and approved uploads must work on current iPhone and Android browsers.",
+          "How do I apply?":
+            "Choose an opening on the Careers page and complete the secure application. You may save and return using your private resume link.",
+          "What happens after I apply?":
+            "Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.",
+          "Can I apply from my phone?":
+            "Yes. The complete application, signature, save/resume, and approved uploads must work on current iPhone and Android browsers.",
         };
-        for (const faq of parsed["faqs"] ?? []) if (faqAnswers[faq["question"]]) faq["answer"] = faqAnswers[faq["question"]];
+        for (const faq of parsed["faqs"] ?? [])
+          if (faqAnswers[faq["question"]]) faq["answer"] = faqAnswers[faq["question"]];
         cache = parsed;
         persist();
         return cache;
