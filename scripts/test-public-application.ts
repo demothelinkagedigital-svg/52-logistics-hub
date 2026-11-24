@@ -3,6 +3,7 @@ import { getDb, resetDb, table } from "../src/lib/mock/db";
 import { hashToken } from "../src/lib/application-access";
 import { DEMO_USERS } from "../src/lib/mock/db";
 import { setDemoUserId } from "../src/lib/mock/client";
+import { archiveResource, duplicateResource, saveResource } from "../src/lib/ops.functions";
 import {
   getApplicationDetail,
   assignApplicationRecruiter,
@@ -274,4 +275,67 @@ assert.equal(
   table("esign_records").some((record) => record["id"] === esignRecord["id"]),
   false,
 );
-console.log("Public application and handoff tests passed.");
+setDemoUserId(contentManagerId);
+for (const resource of ["jobs", "handbook_sections", "required_systems", "lms_courses"] as const) {
+  const existing = table(resource)[0]!;
+  const other = table(resource)[1]!;
+  const slug = existing["slug"] as string;
+  await assert.rejects(
+    saveResource({ data: { resource, values: { slug } } }),
+    /That slug is already used/,
+  );
+  await assert.rejects(
+    saveResource({ data: { resource, id: other["id"], values: { slug } } }),
+    /That slug is already used/,
+  );
+  for (const invalid of ["Bad-Slug", "bad slug", "bad_slug", ""]) {
+    await assert.rejects(
+      saveResource({ data: { resource, values: { slug: invalid } } }),
+      /Slug must contain only lowercase letters, digits and hyphens/,
+    );
+    await assert.rejects(
+      saveResource({ data: { resource, id: existing["id"], values: { slug: invalid } } }),
+      /Slug must contain only lowercase letters, digits and hyphens/,
+    );
+  }
+  await saveResource({ data: { resource, id: existing["id"], values: { slug } } });
+  const originalNow = Date.now;
+  Date.now = () => 123456789;
+  try {
+    const duplicate = await duplicateResource({ data: { resource, id: existing["id"] } });
+    assert.equal(table(resource).find((row) => row["id"] === duplicate.id)?.["slug"], `${slug}-copy-${(123456789).toString(36)}`);
+    await assert.rejects(
+      duplicateResource({ data: { resource, id: existing["id"] } }),
+      /That slug is already used/,
+    );
+  } finally {
+    Date.now = originalNow;
+  }
+}
+
+for (const resource of ["jobs", "lms_courses"] as const) {
+  const row = table(resource)[0]!;
+  const slug = row["slug"] as string;
+  await archiveResource({ data: { resource, id: row["id"] } });
+  assert.ok(row["archived_at"]);
+  assert.equal(row["published"], false);
+  const created = await saveResource({ data: { resource, values: { slug } } });
+  await assert.rejects(
+    archiveResource({ data: { resource, id: row["id"], restore: true } }),
+    /That slug is already used/,
+  );
+  await archiveResource({ data: { resource, id: created.id! } });
+  await archiveResource({ data: { resource, id: row["id"], restore: true } });
+  assert.equal(row["archived_at"], null);
+  assert.equal(row["published"], false);
+}
+
+for (const resource of ["handbook_versions", "safety_resources"] as const) {
+  assert.ok(table(resource).every((row) => row["approval_state"] === "draft"));
+  const created = await saveResource({ data: { resource, values: { title: "New item" } } });
+  assert.equal(table(resource).find((row) => row["id"] === created.id)?.["approval_state"], "draft");
+  await assert.rejects(saveResource({ data: { resource, id: created.id!, values: { approval_state: "invalid" } } }));
+  await saveResource({ data: { resource, id: created.id!, values: { approval_state: "under_review" } } });
+  assert.equal(table(resource).find((row) => row["id"] === created.id)?.["approval_state"], "under_review");
+}
+console.log("Public application, handoff, and management tests passed.");

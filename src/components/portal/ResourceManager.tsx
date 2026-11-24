@@ -171,7 +171,9 @@ export function ResourceManager({
 
   function openEditor(row: ResourceRow | "new") {
     setEditing(row);
-    setDraft(row === "new" ? {} : { ...row });
+    setDraft(row === "new"
+      ? (resource === "handbook_versions" || resource === "safety_resources" ? { approval_state: "draft" } : {})
+      : { ...row, ...((resource === "handbook_versions" || resource === "safety_resources") && !row["approval_state"] ? { approval_state: "draft" } : {}) });
   }
 
   async function move(index: number, direction: -1 | 1) {
@@ -255,6 +257,10 @@ export function ResourceManager({
           </button>
         ) : null}
       </div>
+
+      {resource === "handbook_versions" || resource === "safety_resources" ? (
+        <p className="mb-4 text-sm text-muted-foreground">Draft content is not final policy</p>
+      ) : null}
 
       {!rows.length ? (
         <EmptyState
@@ -353,15 +359,16 @@ export function ResourceManager({
                       {view.archivable ? (
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={() => {
+                            if (!showArchived && !window.confirm(`Archive ${String(row[view.primary])}? It will be hidden from the public site and the portal. You can restore it from 'Show archived'.`)) return;
                             void runAction(
                               () =>
                                 archive({
                                   data: { resource, id: String(row["id"]), restore: showArchived },
                                 }),
                               showArchived ? "Restored" : "Archived",
-                            )
-                          }
+                            );
+                          }}
                           aria-label={`${showArchived ? "Restore" : "Archive"} ${String(row[view.primary])}`}
                           className="inline-flex size-9 items-center justify-center rounded-sm border border-input"
                         >

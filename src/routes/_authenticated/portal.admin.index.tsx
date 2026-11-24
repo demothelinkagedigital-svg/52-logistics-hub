@@ -20,7 +20,6 @@ const ROLES: AppRole[] = [
   "recruiter",
   "content_manager",
   "driver",
-  "applicant",
   "developer",
 ];
 
