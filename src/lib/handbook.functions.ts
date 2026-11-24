@@ -1,11 +1,16 @@
-import { handbookReceiptSchema, handbookSignSchema } from "@/lib/application-schema";
+import {
+  handbookAcknowledgementSchema,
+  handbookReceiptSchema,
+  handbookSignSchema,
+} from "@/lib/application-schema";
 import { demoRoles, getDemoUserId } from "@/lib/mock/client";
 import { persist, table, uid, type Row } from "@/lib/mock/db";
 import { createServerFn, requireSupabaseAuth } from "@/lib/mock/server-fn";
 
-// This exact text is stored with every signature; never accept it from the caller.
-export const HANDBOOK_ACKNOWLEDGEMENT_STATEMENT =
-  "I acknowledge that I have received, read, and understand the Driver Handbook, and I agree to comply with its policies.";
+// This text is generated from the release label, never accepted from the caller.
+export function handbookStatement(versionLabel: string): string {
+  return `I have read and understand the 52 Logistics Driver Handbook, version ${versionLabel}, and agree to follow its policies.`;
+}
 
 type SectionContent = { title: string; body: string };
 
@@ -75,13 +80,16 @@ async function sha256(value: string): Promise<string> {
 }
 
 function signatureFor(userId: string, versionId: string): Row | undefined {
-  return table("handbook_signatures").find(
-    (signature) => signature["user_id"] === userId && signature["version_id"] === versionId,
+  return table("handbook_acknowledgements").find(
+    (signature) =>
+      signature["user_id"] === userId && signature["handbook_version_id"] === versionId,
   );
 }
 
 function receipt(signature: Row): Row {
-  const version = table("handbook_versions").find((row) => row["id"] === signature["version_id"]);
+  const version = table("handbook_versions").find(
+    (row) => row["id"] === signature["handbook_version_id"],
+  );
   return structuredClone({
     ...signature,
     effective_date: signature["effective_date"] ?? version?.["effective_date"] ?? null,
@@ -97,7 +105,7 @@ export const getHandbook = createServerFn({ method: "GET" })
     const signature =
       permissions.driver && version ? signatureFor(context.userId, version["id"]) : undefined;
     const history = permissions.driver
-      ? table("handbook_signatures")
+      ? table("handbook_acknowledgements")
           .filter((row) => row["user_id"] === context.userId)
           .sort((a, b) => String(b["signed_at"]).localeCompare(String(a["signed_at"])))
           .map(receipt)
@@ -122,6 +130,9 @@ export const signHandbook = createServerFn({ method: "POST" })
     const existing = signatureFor(context.userId, data.version_id);
     if (existing) return receipt(existing);
 
+    const versionLabel = version["version_label"];
+    const handbookTitle = version["title"];
+    const effectiveDate = version["effective_date"];
     const content = serializeSections(publishedSections());
     const contentHash = await sha256(content);
     // The digest is asynchronous: recheck identity, current release and content before committing.
@@ -129,6 +140,9 @@ export const signHandbook = createServerFn({ method: "POST" })
       throw new Error("Your session has changed.");
     if (
       currentVersion()?.["id"] !== data.version_id ||
+      version["version_label"] !== versionLabel ||
+      version["title"] !== handbookTitle ||
+      version["effective_date"] !== effectiveDate ||
       serializeSections(publishedSections()) !== content
     ) {
       throw new Error("The handbook changed. Please review it again before signing.");
@@ -136,24 +150,29 @@ export const signHandbook = createServerFn({ method: "POST" })
     const duplicate = signatureFor(context.userId, data.version_id);
     if (duplicate) return receipt(duplicate);
     const signedAt = new Date().toISOString();
-    const signature: Row = {
+    const signature = handbookAcknowledgementSchema.parse({
       id: uid(),
       user_id: context.userId,
-      version_id: data.version_id,
+      handbook_version_id: data.version_id,
+      version_label: versionLabel,
+      handbook_title: handbookTitle,
+      statement: handbookStatement(versionLabel),
       signature_name: data.signature_name,
       signed_at: signedAt,
-      acknowledgement_statement: HANDBOOK_ACKNOWLEDGEMENT_STATEMENT,
       content_hash: contentHash,
-      effective_date: version["effective_date"],
-      version_label: version["version_label"],
-      user_agent: typeof navigator === "undefined" ? null : navigator.userAgent,
-    };
-    table("handbook_signatures").push(signature);
+      source: {
+        method: "web",
+        user_agent: typeof navigator === "undefined" ? null : navigator.userAgent,
+      },
+      created_at: signedAt,
+      effective_date: effectiveDate,
+    });
+    table("handbook_acknowledgements").push(signature);
     table("audit_logs").push({
       id: uid(),
       actor_id: context.userId,
       action: "handbook_signed",
-      target_type: "handbook_signatures",
+      target_type: "handbook_acknowledgements",
       target_id: signature["id"],
       metadata: { version_id: data.version_id, content_hash: contentHash },
       created_at: signedAt,
@@ -183,20 +202,8 @@ export const getHandbookDownload = createServerFn({ method: "GET" })
       throw new Error("Only drivers can download a signed handbook.");
     const version = currentVersion();
     const signature = version && signatureFor(context.userId, version["id"]);
-    if (!version || !signature) throw new Error("Sign the current handbook before downloading it.");
+    if (!version || !signature) throw new Error("Sign the current handbook to unlock the download");
     const sections = publishedSections();
-    const serialized = serializeSections(sections);
-    const hash = await sha256(serialized);
-    if (
-      getDemoUserId() !== context.userId ||
-      !access(context.userId).driver ||
-      currentVersion()?.["id"] !== version["id"] ||
-      serializeSections(publishedSections()) !== serialized
-    ) {
-      throw new Error("The handbook or your session changed. Please try again.");
-    }
-    if (signature["content_hash"] !== hash)
-      throw new Error("Handbook content changed since signing. Contact an administrator.");
     if (typeof version["document_url"] === "string") {
       try {
         const url = new URL(version["document_url"]);
@@ -214,7 +221,7 @@ export const getHandbookReceipt = createServerFn({ method: "GET" })
   .inputValidator((input: unknown) => handbookReceiptSchema.parse(input))
   .handler(async ({ data, context }) => {
     const permissions = requireReader(context.userId);
-    const signature = table("handbook_signatures").find((row) => row["id"] === data.id);
+    const signature = table("handbook_acknowledgements").find((row) => row["id"] === data.id);
     if (
       !signature ||
       (!permissions.admin && (!permissions.driver || signature["user_id"] !== context.userId))

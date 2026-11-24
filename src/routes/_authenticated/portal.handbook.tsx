@@ -9,7 +9,7 @@ import {
   signHandbook,
   getHandbookDownload,
   getHandbookReceipt,
-  HANDBOOK_ACKNOWLEDGEMENT_STATEMENT,
+  handbookStatement,
 } from "@/lib/handbook.functions";
 import { useSession } from "@/lib/session";
 import { PortalHeading } from "@/components/portal/PortalShell";
@@ -36,26 +36,20 @@ type Version = {
   title: string;
   version_label: string;
   effective_date?: string | null;
-  requires_signature?: boolean;
   description?: string | null;
   change_summary?: string | null;
 };
 type Section = { id: string; title: string; body: string; category?: string | null };
 type Signature = {
   id: string;
-  version_id?: string;
-  signature_name?: string;
-  signed_at?: string;
-  statement?: string | null;
-  acknowledgement_statement?: string | null;
-  content_sha256?: string | null;
-  content_hash?: string | null;
-  document_hash?: string | null;
-  hash?: string | null;
-  version_label?: string | null;
-  effective_date?: string | null;
-  version?: Version | null;
-  handbook_versions?: Version | null;
+  handbook_version_id: string;
+  signature_name: string;
+  signed_at: string;
+  statement: string;
+  content_hash: string;
+  version_label: string;
+  handbook_title: string;
+  effective_date: string | null;
 };
 type Handbook = {
   version: Version | null;
@@ -102,21 +96,16 @@ function downloadFile(content: string, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-function downloadReceipt(receipt: Signature, currentVersion: Version | null) {
-  const version =
-    receipt.version ??
-    receipt.handbook_versions ??
-    (receipt.version_id === currentVersion?.id ? currentVersion : null);
+function downloadReceipt(receipt: Signature, driverName: string | undefined) {
   const fields = [
-    ["Name", receipt.signature_name],
-    ["Version", receipt.version_label ?? version?.version_label],
-    ["Effective date", formatDate(receipt.effective_date ?? version?.effective_date)],
-    ["Signed at", receipt.signed_at ? formatDate(receipt.signed_at, true) : undefined],
-    ["Acknowledgement", receipt.statement ?? receipt.acknowledgement_statement],
-    [
-      "Hash",
-      receipt.content_sha256 ?? receipt.content_hash ?? receipt.document_hash ?? receipt.hash,
-    ],
+    ["Driver name", driverName],
+    ["Typed signature name", receipt.signature_name],
+    ["Handbook", receipt.handbook_title],
+    ["Version", receipt.version_label],
+    ["Effective date", receipt.effective_date],
+    ["Signed at", formatDate(receipt.signed_at, true)],
+    ["Acknowledgement", receipt.statement],
+    ["Hash", receipt.content_hash],
   ];
   const rows = fields
     .map(
@@ -125,7 +114,7 @@ function downloadReceipt(receipt: Signature, currentVersion: Version | null) {
     )
     .join("");
   downloadFile(
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Handbook acknowledgement receipt</title><style>body{font:16px/1.5 system-ui,sans-serif;color:#111;max-width:740px;margin:3rem auto;padding:0 1rem}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:.75rem;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{width:12rem}@media print{body{margin:0}}</style></head><body><h1>Handbook acknowledgement receipt</h1><table>${rows}</table></body></html>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Handbook acknowledgement receipt</title><style>body{font:16px/1.5 system-ui,sans-serif;color:#111;max-width:740px;margin:3rem auto;padding:0 1rem}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;padding:.75rem;text-align:left;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}th{width:12rem}@media print{body{margin:0}}</style></head><body><h1>Handbook acknowledgement receipt</h1><table>${rows}</table></body></html>`,
     "handbook-acknowledgement.html",
   );
 }
@@ -179,8 +168,13 @@ function HandbookPage() {
     try {
       const result = await fetchDownload();
       if (result.url) {
+        const url = new URL(result.url);
+        if (url.protocol !== "https:" && url.protocol !== "http:") {
+          throw new Error("The handbook download link is invalid.");
+        }
         const link = document.createElement("a");
-        link.href = result.url;
+        link.href = url.href;
+        link.download = "driver-handbook";
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         document.body.appendChild(link);
@@ -202,7 +196,7 @@ function HandbookPage() {
     setReceiptId(id);
     try {
       const receipt = (await fetchReceipt({ data: { id } })) as Signature;
-      downloadReceipt(receipt, data?.version ?? null);
+      downloadReceipt(receipt, user?.user_metadata.full_name);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not download the receipt.");
     } finally {
@@ -250,11 +244,13 @@ function HandbookPage() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {version.requires_signature ? (
-                  <Badge>Signature required</Badge>
-                ) : (
-                  <Badge variant="secondary">No signature required</Badge>
-                )}
+                {isDriver ? (
+                  signature ? (
+                    <Badge variant="secondary">Signed</Badge>
+                  ) : (
+                    <Badge>Action required</Badge>
+                  )
+                ) : null}
                 {staffPreview ? <Badge variant="outline">Staff preview</Badge> : null}
               </div>
             </div>
@@ -268,7 +264,7 @@ function HandbookPage() {
             ) : null}
           </Panel>
 
-          {isDriver && version.requires_signature && !signature ? (
+          {isDriver && !signature ? (
             <div
               role="status"
               className="rounded-sm border border-accent/40 bg-accent/10 px-5 py-4 text-sm"
@@ -309,7 +305,7 @@ function HandbookPage() {
                     {signature.signature_name}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Signed {formatDate(signature.signed_at, true)}
+                    Signed on {formatDate(signature.signed_at, true)}
                   </p>
                 </div>
               ) : data.canSign ? (
@@ -324,11 +320,11 @@ function HandbookPage() {
                       htmlFor="handbook-agree"
                       className="cursor-pointer text-sm leading-relaxed"
                     >
-                      {HANDBOOK_ACKNOWLEDGEMENT_STATEMENT}
+                      {handbookStatement(version.version_label)}
                     </Label>
                   </div>
                   <div className="max-w-md space-y-2">
-                    <Label htmlFor="handbook-name">Full legal name</Label>
+                    <Label htmlFor="handbook-name">Type your full legal name to sign</Label>
                     <Input
                       id="handbook-name"
                       value={name}
@@ -358,9 +354,7 @@ function HandbookPage() {
                   {downloading ? "Preparing…" : "Download handbook"}
                 </Button>
                 {!downloadAllowed ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    A signature is required before download.
-                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">Sign to unlock the download</p>
                 ) : null}
               </div>
             </Panel>
@@ -368,7 +362,7 @@ function HandbookPage() {
         </div>
       )}
       {isDriver && data && !query.error ? (
-        <Panel title="Acknowledgement history" className="mt-6">
+        <Panel title="Signature history" className="mt-6">
           {!data.history.length ? (
             <p className="text-sm text-muted-foreground">No previous acknowledgements.</p>
           ) : (
@@ -379,14 +373,9 @@ function HandbookPage() {
                   className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
                 >
                   <div>
-                    <p className="text-sm font-semibold">
-                      {item.version_label ??
-                        item.version?.version_label ??
-                        item.handbook_versions?.version_label ??
-                        "Handbook acknowledgement"}
-                    </p>
+                    <p className="text-sm font-semibold">{item.version_label}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Signed {formatDate(item.signed_at, true)}
+                      Signed on {formatDate(item.signed_at, true)}
                     </p>
                   </div>
                   <Button
@@ -397,7 +386,7 @@ function HandbookPage() {
                     onClick={() => void handleReceipt(item.id)}
                   >
                     <BookOpen aria-hidden="true" />
-                    {receiptId === item.id ? "Preparing…" : "Download receipt"}
+                    {receiptId === item.id ? "Preparing…" : "Download signed receipt"}
                   </Button>
                 </li>
               ))}

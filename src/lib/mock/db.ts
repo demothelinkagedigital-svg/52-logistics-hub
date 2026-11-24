@@ -833,7 +833,7 @@ function seed(): Tables {
         archived_at: null,
       },
     ],
-    handbook_signatures: [],
+    handbook_acknowledgements: [],
     demo_migrations: [{ id: "handbook-sample-approved-v1" }],
     safety_resources: [
       [

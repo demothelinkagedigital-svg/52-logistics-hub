@@ -164,6 +164,25 @@ export const handbookSignSchema = z
   })
   .strict();
 
+export const handbookAcknowledgementSchema = z
+  .object({
+    id: z.string().uuid(),
+    user_id: z.string().uuid(),
+    handbook_version_id: z.string().uuid(),
+    version_label: z.string().min(1),
+    handbook_title: z.string().min(1),
+    statement: z.string().min(1),
+    signature_name: z.string().trim().min(2).max(120),
+    signed_at: z.string().datetime(),
+    content_hash: z.string().regex(/^[a-f0-9]{64}$/),
+    source: z.object({ method: z.literal("web"), user_agent: z.string().nullable() }).strict(),
+    created_at: z.string().datetime(),
+    effective_date: z.string(),
+  })
+  .strict();
+
+export type HandbookAcknowledgement = z.infer<typeof handbookAcknowledgementSchema>;
+
 export const handbookReceiptSchema = z.object({ id: z.string().uuid() }).strict();
 
 export const ESIGN_STATUSES = [
