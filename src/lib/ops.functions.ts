@@ -114,6 +114,14 @@ export const RESOURCES = {
     write: "content",
     archiveColumn: "archived_at",
   },
+  lms_lessons: {
+    table: "lms_lessons",
+    label: "Academy lesson",
+    columns: ["course_id","module_id","title","slug","lesson_type","body","media_url","duration_minutes","min_view_seconds","sort_order","published"],
+    order: { column: "sort_order", ascending: true },
+    read: "content",
+    write: "content",
+  },
   media_assets: {
     table: "media_assets",
     label: "Media asset",

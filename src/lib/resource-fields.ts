@@ -210,6 +210,25 @@ export const RESOURCE_VIEWS: Record<ResourceKey, ResourceView> = {
       { name: "sort_order", label: "Order", type: "number" },
     ],
   },
+  lms_lessons: {
+    eyebrow: "Academy",
+    title: "Academy lessons",
+    blurb: "Lesson content and minimum time required before a driver may complete it.",
+    primary: "title",
+    orderable: true,
+    fields: [
+      { name: "course_id", label: "Course ID", type: "text", required: true },
+      { name: "module_id", label: "Module ID", type: "text", required: true },
+      { name: "title", label: "Title", type: "text", required: true, column: true },
+      { name: "slug", label: "Slug", type: "text", required: true },
+      { name: "body", label: "Lesson content", type: "richtext", wide: true },
+      { name: "lesson_type", label: "Lesson type", type: "text" },
+      { name: "duration_minutes", label: "Estimated minutes", type: "number" },
+      { name: "min_view_seconds", label: "Minimum view seconds", type: "number", required: true, column: true },
+      { name: "published", label: "Published", type: "boolean", column: true },
+      { name: "sort_order", label: "Order", type: "number" },
+    ],
+  },
   media_assets: {
     eyebrow: "Content",
     title: "Media library",
@@ -315,6 +334,7 @@ export const MANAGE_GROUPS: ReadonlyArray<{
     group: "Learning & policy",
     items: [
       { resource: "lms_courses", label: "Academy courses" },
+      { resource: "lms_lessons", label: "Academy lessons" },
       { resource: "handbook_versions", label: "Handbook versions" },
       { resource: "handbook_sections", label: "Handbook sections" },
     ],
