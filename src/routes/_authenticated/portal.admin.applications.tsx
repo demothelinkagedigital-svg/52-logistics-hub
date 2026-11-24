@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
 import { listApplications } from "@/lib/recruiting.functions";
-import { APPLICATION_STATUS_LABELS } from "@/lib/application-schema";
+import { applicationStatusLabel } from "@/lib/application-schema";
 import { useSession } from "@/lib/session";
 import { PortalHeading } from "@/components/portal/PortalShell";
 import {
@@ -44,7 +44,11 @@ function AdminApplications() {
 
   return (
     <div>
-      <PortalHeading eyebrow="Administration" title="All applications" blurb="Every application on record." />
+      <PortalHeading
+        eyebrow="Administration"
+        title="All applications"
+        blurb="Every application on record."
+      />
       <Panel title="Applications">
         {isLoading ? (
           <TableSkeleton rows={8} />
@@ -77,7 +81,7 @@ function AdminApplications() {
                     </td>
                     <td className="py-3 pr-3 font-mono text-xs">{a.reference_code}</td>
                     <td className="py-3 pr-3">
-                      <StatusBadge status={a.status} label={APPLICATION_STATUS_LABELS[a.status] ?? a.status} />
+                      <StatusBadge status={a.status} label={applicationStatusLabel(a.status)} />
                     </td>
                     <td className="py-3 pr-3 text-xs text-muted-foreground">
                       {new Date(a.updated_at).toLocaleDateString()}

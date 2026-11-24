@@ -330,14 +330,14 @@ function seed(): Tables {
     {
       first: "Sandra",
       last: "Willis",
-      status: "submitted",
+      status: "new",
       step: 6,
       ref: "52L-1002",
     },
     {
       first: "Kevin",
       last: "Ortiz",
-      status: "under_review",
+      status: "ready_for_review",
       step: 6,
       ref: "52L-1003",
     },
@@ -351,7 +351,7 @@ function seed(): Tables {
     {
       first: "Raymond",
       last: "Fields",
-      status: "conditional_offer",
+      status: "screening_complete_review",
       step: 6,
       ref: "52L-1005",
     },
@@ -360,7 +360,8 @@ function seed(): Tables {
   ].map((a, i) => ({
     id: `a0000000-0000-4000-a000-00000000000${i + 1}`,
     user_id: null,
-    resume_token_hash: i === 0 ? "35a8b2102bb067e1ec0bebef45ac4e3ca920473d36e15199248e9557b27e4660" : null,
+    resume_token_hash:
+      i === 0 ? "35a8b2102bb067e1ec0bebef45ac4e3ca920473d36e15199248e9557b27e4660" : null,
     resume_expires_at: i === 0 ? daysAhead(30) : null,
     source: "web",
     last_saved_at: daysAgo(3),
@@ -522,7 +523,7 @@ function seed(): Tables {
         actor_id: recruiterId,
         event_type: "status_change",
         description: `Status set to ${app.status}`,
-        metadata: { status: app.status },
+        metadata: { from: "new", to: app.status },
         created_at: daysAgo(3),
       },
     ]),
@@ -1046,30 +1047,53 @@ export function getDb(): Tables {
         seeding = false;
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
+        const legacyStatuses: Record<string, string> = {
+          submitted: "new",
+          under_review: "ready_for_review",
+          screening: "fadv_in_progress",
+          background_check: "fadv_in_progress",
+          interview: "screening_complete_review",
+          conditional_offer: "screening_complete_review",
+          onboarding: "screening_complete_review",
+          withdrawn: "archived",
+        };
         for (const app of parsed["applications"] ?? []) {
+          if (legacyStatuses[app["status"]]) app["status"] = legacyStatuses[app["status"]];
           if (app["user_id"] === undefined) app["user_id"] = null;
-          const demoDraft = app["id"] === "a0000000-0000-4000-a000-000000000001" && app["status"] === "draft";
+          const demoDraft =
+            app["id"] === "a0000000-0000-4000-a000-000000000001" && app["status"] === "draft";
           if (app["resume_token_hash"] === undefined || (demoDraft && !app["resume_token_hash"])) {
-            app["resume_token_hash"] = demoDraft ? fresh["applications"]![0]!["resume_token_hash"] : null;
+            app["resume_token_hash"] = demoDraft
+              ? fresh["applications"]![0]!["resume_token_hash"]
+              : null;
           }
           if (app["resume_expires_at"] === undefined || (demoDraft && !app["resume_expires_at"])) {
-            app["resume_expires_at"] = demoDraft ? fresh["applications"]![0]!["resume_expires_at"] : null;
+            app["resume_expires_at"] = demoDraft
+              ? fresh["applications"]![0]!["resume_expires_at"]
+              : null;
           }
           if (app["source"] === undefined) app["source"] = "web";
           if (app["last_saved_at"] === undefined) app["last_saved_at"] = app["updated_at"] ?? null;
         }
         for (const name of ["application_employers", "application_documents"]) {
-          for (const row of parsed[name] ?? []) if (row["user_id"] === undefined) row["user_id"] = null;
+          for (const row of parsed[name] ?? [])
+            if (row["user_id"] === undefined) row["user_id"] = null;
         }
         if (!parsed["site_settings"]!.some((row) => row["key"] === "application_resume_days")) {
-          parsed["site_settings"]!.push(fresh["site_settings"]!.find((row) => row["key"] === "application_resume_days")!);
+          parsed["site_settings"]!.push(
+            fresh["site_settings"]!.find((row) => row["key"] === "application_resume_days")!,
+          );
         }
         const faqAnswers: Record<string, string> = {
-          "How do I apply?": "Choose an opening on the Careers page and complete the secure application. You may save and return using your private resume link.",
-          "What happens after I apply?": "Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.",
-          "Can I apply from my phone?": "Yes. The complete application, signature, save/resume, and approved uploads must work on current iPhone and Android browsers.",
+          "How do I apply?":
+            "Choose an opening on the Careers page and complete the secure application. You may save and return using your private resume link.",
+          "What happens after I apply?":
+            "Recruiting reviews your application. If you advance, 52 Logistics may initiate a separate screening process through First Advantage, which will contact you through its secure candidate experience.",
+          "Can I apply from my phone?":
+            "Yes. The complete application, signature, save/resume, and approved uploads must work on current iPhone and Android browsers.",
         };
-        for (const faq of parsed["faqs"] ?? []) if (faqAnswers[faq["question"]]) faq["answer"] = faqAnswers[faq["question"]];
+        for (const faq of parsed["faqs"] ?? [])
+          if (faqAnswers[faq["question"]]) faq["answer"] = faqAnswers[faq["question"]];
         cache = parsed;
         persist();
         return cache;

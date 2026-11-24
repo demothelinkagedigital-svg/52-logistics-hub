@@ -4,7 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
 import { Users, Inbox, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { listApplications, getRecruitingStats } from "@/lib/recruiting.functions";
-import { APPLICATION_STATUS_LABELS } from "@/lib/application-schema";
+import {
+  APPLICATION_STATUS_LABELS,
+  APPLICATION_STATUS_ORDER,
+  applicationStatusLabel,
+} from "@/lib/application-schema";
 import { useSession } from "@/lib/session";
 import { PortalHeading } from "@/components/portal/PortalShell";
 import {
@@ -58,7 +62,13 @@ function RecruitingPage() {
     const list = apps.data ?? [];
     const needle = q.trim().toLowerCase();
     return list.filter((a) => {
-      if (status !== "all" && a.status !== status) return false;
+      if (
+        status !== "all" &&
+        (status === "incomplete"
+          ? !["draft", "incomplete", "corrections_requested"].includes(a.status)
+          : a.status !== status)
+      )
+        return false;
       if (!needle) return true;
       return [a.first_name, a.last_name, a.email, a.phone, a.reference_code, a.position_title]
         .filter(Boolean)
@@ -78,14 +88,29 @@ function RecruitingPage() {
       <PortalHeading
         eyebrow="Operations"
         title="Recruiting pipeline"
-        blurb="Every submitted driver application, with review status and activity."
+        blurb="Every driver application, with review status and activity."
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total applications" value={stats.data?.total ?? "—"} icon={Users} />
-        <StatCard label="Awaiting review" value={stats.data?.awaitingReview ?? "—"} icon={Inbox} delay={0.05} />
-        <StatCard label="Corrections requested" value={stats.data?.needingCorrections ?? "—"} icon={AlertTriangle} delay={0.1} />
-        <StatCard label="Approved / onboarding" value={stats.data?.approved ?? "—"} icon={CheckCircle2} delay={0.15} />
+        <StatCard
+          label="Awaiting review"
+          value={stats.data?.awaitingReview ?? "—"}
+          icon={Inbox}
+          delay={0.05}
+        />
+        <StatCard
+          label="Corrections requested"
+          value={stats.data?.needingCorrections ?? "—"}
+          icon={AlertTriangle}
+          delay={0.1}
+        />
+        <StatCard
+          label="Management review"
+          value={stats.data?.managementReview ?? "—"}
+          icon={CheckCircle2}
+          delay={0.15}
+        />
       </div>
 
       <Panel
@@ -112,9 +137,9 @@ function RecruitingPage() {
               className="rounded-sm border border-input bg-background px-3 py-2 text-sm"
             >
               <option value="all">All statuses</option>
-              {Object.entries(APPLICATION_STATUS_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
+              {APPLICATION_STATUS_ORDER.map((status) => (
+                <option key={status} value={status}>
+                  {APPLICATION_STATUS_LABELS[status]}
                 </option>
               ))}
             </select>
@@ -163,7 +188,7 @@ function RecruitingPage() {
                       <td className="py-3 pr-3 font-mono text-xs">{a.reference_code}</td>
                       <td className="py-3 pr-3">{a.position_title ?? "—"}</td>
                       <td className="py-3 pr-3">
-                        <StatusBadge status={a.status} label={APPLICATION_STATUS_LABELS[a.status] ?? a.status} />
+                        <StatusBadge status={a.status} label={applicationStatusLabel(a.status)} />
                       </td>
                       <td className="py-3 pr-3 text-xs text-muted-foreground">
                         {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : "—"}

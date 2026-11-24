@@ -12,7 +12,11 @@ import {
   verifyDocument,
   getDocumentUrl,
 } from "@/lib/recruiting.functions";
-import { APPLICATION_STATUS_LABELS } from "@/lib/application-schema";
+import {
+  APPLICATION_STATUS_LABELS,
+  APPLICATION_STATUS_ORDER,
+  applicationStatusLabel,
+} from "@/lib/application-schema";
 import { useSession } from "@/lib/session";
 import { PortalHeading } from "@/components/portal/PortalShell";
 import {
@@ -72,6 +76,7 @@ function ApplicantDetail() {
   const openDoc = useServerFn(getDocumentUrl);
 
   const [note, setNote] = useState("");
+  const [statusNote, setStatusNote] = useState("");
   const [corrections, setCorrections] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -116,9 +121,7 @@ function ApplicantDetail() {
         eyebrow={a.reference_code}
         title={fullName(a)}
         blurb={a.position_title ?? "No position selected"}
-        action={
-          <StatusBadge status={a.status} label={APPLICATION_STATUS_LABELS[a.status] ?? a.status} />
-        }
+        action={<StatusBadge status={a.status} label={applicationStatusLabel(a.status)} />}
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -307,11 +310,23 @@ function ApplicantDetail() {
 
           <Panel title="Activity history">
             <Timeline
-              items={data.events.map((e) => ({
-                id: e.id,
-                title: ACTIVITY_LABELS[e.event_type] ?? "Application activity",
-                at: e.created_at,
-              }))}
+              items={data.events.map((e) => {
+                const metadata =
+                  e.metadata && typeof e.metadata === "object"
+                    ? (e.metadata as Record<string, unknown>)
+                    : {};
+                const isStatusChange =
+                  e.event_type === "status_change" && metadata["from"] && metadata["to"];
+                return {
+                  id: e.id,
+                  title: isStatusChange
+                    ? `${applicationStatusLabel(String(metadata["from"]))} → ${applicationStatusLabel(String(metadata["to"]))}`
+                    : (ACTIVITY_LABELS[e.event_type] ?? "Application activity"),
+                  description: e.description,
+                  at: e.created_at,
+                  who: e.actor_name ?? (e.actor_id ? "Staff member" : "Applicant"),
+                };
+              })}
             />
           </Panel>
         </div>
@@ -322,22 +337,39 @@ function ApplicantDetail() {
               Change status
             </label>
             <select
-              defaultValue={a.status}
+              value={
+                ["draft", "corrections_requested"].includes(a.status) ? "incomplete" : a.status
+              }
               disabled={busy}
               onChange={(e) =>
                 void run(
-                  () => setStatus({ data: { id, status: e.target.value } }),
+                  () =>
+                    setStatus({
+                      data: {
+                        id,
+                        status: e.target.value as (typeof APPLICATION_STATUS_ORDER)[number],
+                        note: statusNote.trim() || undefined,
+                      },
+                    }),
                   "Status updated",
                 )
               }
               className="mt-1.5 w-full rounded-sm border border-input bg-background px-3 py-2.5 text-sm"
             >
-              {Object.entries(APPLICATION_STATUS_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
+              {APPLICATION_STATUS_ORDER.map((status) => (
+                <option key={status} value={status}>
+                  {APPLICATION_STATUS_LABELS[status]}
                 </option>
               ))}
             </select>
+            <textarea
+              rows={2}
+              value={statusNote}
+              onChange={(e) => setStatusNote(e.target.value)}
+              placeholder="Optional status-change note…"
+              className="mt-2 w-full rounded-sm border border-input bg-background px-3 py-2.5 text-sm"
+              aria-label="Optional status-change note"
+            />
 
             <div className="mt-5">
               <label className="block text-[11px] font-semibold uppercase text-muted-foreground">

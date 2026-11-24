@@ -4,7 +4,7 @@ import { useServerFn } from "@/lib/mock/server-fn";
 import { ClipboardList, ArrowRight } from "lucide-react";
 import { getMyPortal } from "@/lib/portal.functions";
 import { PortalHeading, Card } from "@/components/portal/PortalShell";
-import { APPLICATION_STATUS_LABELS } from "@/lib/application-schema";
+import { applicationStatusLabel } from "@/lib/application-schema";
 import { ROLE_LABELS, type AppRole } from "@/lib/session";
 
 export const Route = createFileRoute("/_authenticated/portal/")({
@@ -43,9 +43,7 @@ function Dashboard() {
           <p className="eyebrow text-muted-foreground">Application</p>
           {app ? (
             <>
-              <p className="mt-3 text-2xl font-semibold">
-                {APPLICATION_STATUS_LABELS[app.status] ?? app.status}
-              </p>
+              <p className="mt-3 text-2xl font-semibold">{applicationStatusLabel(app.status)}</p>
               <p className="mt-1 font-mono text-xs text-muted-foreground">{app.reference_code}</p>
               <p className="mt-4 text-sm text-muted-foreground">
                 {app.position_title ?? "Position not selected yet"}

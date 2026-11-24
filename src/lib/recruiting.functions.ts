@@ -14,7 +14,6 @@ export const listApplications = createServerFn({ method: "GET" })
       .select(
         "id, reference_code, first_name, last_name, email, phone, position_title, status, submitted_at, created_at, updated_at",
       )
-      .neq("status", "draft")
       .order("submitted_at", { ascending: false, nullsFirst: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -54,7 +53,7 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
         .order("created_at", { ascending: false }),
       supabase
         .from("application_events")
-        .select("id, event_type, created_at")
+        .select("id, event_type, created_at, actor_id, metadata, description")
         .eq("application_id", data.id)
         .order("created_at", { ascending: false }),
     ]);
@@ -62,12 +61,27 @@ export const getApplicationDetail = createServerFn({ method: "GET" })
       if (result.error) throw new Error(result.error.message);
     }
     if (!appRes.data) throw new Error("Application not found");
+    const actorIds = [
+      ...new Set(
+        (eventRes.data ?? [])
+          .map((event) => event.actor_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const { data: profiles, error: profilesError } = actorIds.length
+      ? await supabase.from("profiles").select("id, full_name").in("id", actorIds)
+      : { data: [], error: null };
+    if (profilesError) throw new Error(profilesError.message);
+    const actorNames = new Map((profiles ?? []).map((profile) => [profile.id, profile.full_name]));
     return {
       application: appRes.data,
       employers: empRes.data ?? [],
       documents: docRes.data ?? [],
       notes: noteRes.data ?? [],
-      events: eventRes.data ?? [],
+      events: (eventRes.data ?? []).map((event) => ({
+        ...event,
+        actor_name: event.actor_id ? (actorNames.get(event.actor_id) ?? null) : null,
+      })),
     };
   });
 
@@ -77,7 +91,7 @@ export const updateApplicationStatus = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        status: z.enum(APPLICATION_STATUSES as [string, ...string[]]),
+        status: z.enum(APPLICATION_STATUSES),
         note: z.string().trim().max(1000).optional(),
       })
       .parse(input),
@@ -86,18 +100,40 @@ export const updateApplicationStatus = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: isStaff } = await supabase.rpc("is_recruiting_staff", { _user_id: userId });
     if (!isStaff) throw new Error("Forbidden");
-    const { error } = await supabase
+    const terminalStatuses = ["hired", "rejected", "archived"];
+    if (terminalStatuses.includes(data.status)) {
+      const { data: isAdmin } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "administrator",
+      });
+      if (!isAdmin) throw new Error("Final decisions require management");
+    }
+    const { data: application, error: applicationError } = await supabase
+      .from("applications")
+      .select("status")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (applicationError) throw new Error(applicationError.message);
+    if (!application) throw new Error("Application not found");
+    const from = application.status;
+    if (from === data.status) return { ok: true };
+    const { data: updated, error } = await supabase
       .from("applications")
       .update({ status: data.status as never })
-      .eq("id", data.id);
+      .eq("id", data.id)
+      .eq("status", from as never)
+      .select("id")
+      .maybeSingle();
     if (error) throw new Error(error.message);
-    await supabase.from("application_events").insert({
+    if (!updated) throw new Error("Application status changed. Refresh and try again.");
+    const { error: eventError } = await supabase.from("application_events").insert({
       application_id: data.id,
       actor_id: userId,
       event_type: "status_change",
-      description: data.note ? `${data.status} — ${data.note}` : `Status set to ${data.status}`,
-      metadata: { status: data.status },
+      description: data.note || "Status changed",
+      metadata: { from, to: data.status },
     });
+    if (eventError) throw new Error(eventError.message);
     return { ok: true };
   });
 
@@ -218,15 +254,16 @@ export const getRecruitingStats = createServerFn({ method: "GET" })
     const byStatus: Record<string, number> = {};
     for (const a of apps) byStatus[a.status] = (byStatus[a.status] ?? 0) + 1;
     return {
-      total: apps.filter((a) => a.status !== "draft").length,
+      total: apps.length,
       drafts: apps.filter((a) => a.status === "draft").length,
       newThisWeek: apps.filter((a) => a.submitted_at && new Date(a.submitted_at).getTime() > since)
         .length,
-      awaitingReview: apps.filter((a) => a.status === "submitted").length,
-      needingCorrections: apps.filter((a) => a.status === "corrections_requested").length,
-      approved: apps.filter((a) => ["conditional_offer", "onboarding", "hired"].includes(a.status))
-        .length,
-      rejected: apps.filter((a) => ["rejected", "withdrawn"].includes(a.status)).length,
+      awaitingReview: apps.filter((a) => ["new", "ready_for_review"].includes(a.status)).length,
+      needingCorrections: apps.filter((a) =>
+        ["incomplete", "corrections_requested"].includes(a.status),
+      ).length,
+      managementReview: apps.filter((a) => a.status === "screening_complete_review").length,
+      rejected: apps.filter((a) => ["rejected", "archived"].includes(a.status)).length,
       byStatus,
       documents: {
         total: docs.length,
@@ -247,17 +284,26 @@ export const requestCorrections = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: isStaff } = await supabase.rpc("is_recruiting_staff", { _user_id: userId });
     if (!isStaff) throw new Error("Forbidden");
+    const { data: application, error: applicationError } = await supabase
+      .from("applications")
+      .select("status")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (applicationError) throw new Error(applicationError.message);
+    if (!application) throw new Error("Application not found");
     const { error } = await supabase
       .from("applications")
       .update({ status: "corrections_requested", correction_notes: data.notes })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
-    await supabase.from("application_events").insert({
+    const { error: eventError } = await supabase.from("application_events").insert({
       application_id: data.id,
       actor_id: userId,
-      event_type: "corrections_requested",
+      event_type: "status_change",
       description: data.notes,
+      metadata: { from: application.status, to: "corrections_requested" },
     });
+    if (eventError) throw new Error(eventError.message);
     await supabase.from("audit_logs").insert({
       actor_id: userId,
       action: "application_corrections_requested",

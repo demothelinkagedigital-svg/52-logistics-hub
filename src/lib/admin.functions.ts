@@ -137,11 +137,7 @@ export const getAdminStats = createServerFn({ method: "GET" })
       supabase.from("applications").select("id, status"),
       supabase.from("application_documents").select("id, verification_status"),
       supabase.from("drivers").select("id, status"),
-      supabase
-        .from("audit_logs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10),
+      supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(10),
     ]);
     const roles = roleRes.data ?? [];
     const apps = appRes.data ?? [];
@@ -151,14 +147,12 @@ export const getAdminStats = createServerFn({ method: "GET" })
       activeUsers: (profileRes.data ?? []).filter((p) => p.status === "active").length,
       applicants: new Set(roles.filter((r) => r.role === "applicant").map((r) => r.user_id)).size,
       recruiters: new Set(roles.filter((r) => r.role === "recruiter").map((r) => r.user_id)).size,
-      administrators: new Set(
-        roles.filter((r) => r.role === "administrator").map((r) => r.user_id),
-      ).size,
+      administrators: new Set(roles.filter((r) => r.role === "administrator").map((r) => r.user_id))
+        .size,
       activeDrivers: (driverRes.data ?? []).filter((d) => d.status === "active").length,
-      pendingApplications: apps.filter((a) =>
-        ["submitted", "under_review", "corrections_requested"].includes(a.status),
-      ).length,
-      needsAttention: apps.filter((a) => a.status === "submitted").length,
+      pendingApplications: apps.filter((a) => !["hired", "rejected", "archived"].includes(a.status))
+        .length,
+      needsAttention: apps.filter((a) => a.status === "new").length,
       documents: {
         total: docs.length,
         pending: docs.filter((d) => d.verification_status === "pending").length,
@@ -172,9 +166,7 @@ export const getAdminStats = createServerFn({ method: "GET" })
 export const setProfileStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ user_id: z.string().uuid(), status: z.enum(["active", "suspended"]) })
-      .parse(input),
+    z.object({ user_id: z.string().uuid(), status: z.enum(["active", "suspended"]) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
