@@ -47,7 +47,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
       to: "/portal/academy" as const,
       label: "Driver Academy",
       icon: GraduationCap,
-      show: isDriver || isAdmin,
+      show: isDriver,
     },
     { to: "/portal/notifications" as const, label: "Notifications", icon: Bell, show: true },
     { to: "/portal/recruiting" as const, label: "Recruiting", icon: Users, show: isRecruiter },
@@ -153,7 +153,6 @@ export function PortalShell({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-
     </div>
   );
 }

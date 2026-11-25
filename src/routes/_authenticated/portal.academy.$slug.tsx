@@ -52,7 +52,7 @@ type QuizResult = Awaited<ReturnType<typeof submitQuiz>>;
 
 function CoursePlayer() {
   const { slug } = Route.useParams();
-  const { isDriver, isAdmin, isLoading: sessionLoading } = useSession();
+  const { isDriver, isLoading: sessionLoading } = useSession();
   const fetchCourse = useServerFn(getCourse);
   const openLessonFn = useServerFn(openLesson);
   const markLesson = useServerFn(completeLesson);
@@ -74,7 +74,16 @@ function CoursePlayer() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["academy-course", slug],
     queryFn: () => fetchCourse({ data: { slug } }),
-    enabled: isDriver || isAdmin,
+    enabled: isDriver,
+    retry: (failureCount, queryError) => {
+      if (
+        queryError instanceof Error &&
+        /permission|not authorized|access denied/i.test(queryError.message)
+      ) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   const ordered = useMemo(() => {
@@ -174,7 +183,7 @@ function CoursePlayer() {
   }, [current, openedAt, secondsRemaining]);
 
   if (sessionLoading) return <TableSkeleton rows={6} />;
-  if (!isDriver && !isAdmin) return <AccessDenied need="driver" />;
+  if (!isDriver) return <AccessDenied need="driver" />;
   if (isLoading) return <TableSkeleton rows={8} />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data) return null;

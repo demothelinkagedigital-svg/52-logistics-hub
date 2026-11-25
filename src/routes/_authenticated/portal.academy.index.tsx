@@ -55,14 +55,23 @@ function ProgressBar({ percent }: { percent: number }) {
 }
 
 function AcademyCatalog() {
-  const { isDriver, isAdmin, isLoading: sessionLoading } = useSession();
+  const { isDriver, isLoading: sessionLoading } = useSession();
   const fetchOverview = useServerFn(getAcademyOverview);
   const certifyDriver = useServerFn(driverCertify);
   const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["academy-overview"],
     queryFn: () => fetchOverview(),
-    enabled: isDriver || isAdmin,
+    enabled: isDriver,
+    retry: (failureCount, queryError) => {
+      if (
+        queryError instanceof Error &&
+        /permission|not authorized|access denied/i.test(queryError.message)
+      ) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   async function certify() {
@@ -80,7 +89,7 @@ function AcademyCatalog() {
   }
 
   if (sessionLoading) return <TableSkeleton rows={6} />;
-  if (!isDriver && !isAdmin) return <AccessDenied need="driver" />;
+  if (!isDriver) return <AccessDenied need="driver" />;
 
   return (
     <div>
