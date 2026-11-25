@@ -137,3 +137,35 @@ The migration files were edited as source files; no Supabase migration execution
 - Added validation preventing a DocuSign completion date earlier than its sent date. Extended tests for assignment persistence and events, export columns and privacy, export auditing, content-manager denial, and the date rule.
 - Assignment storage uses the demo mock store only. No Supabase migration tool was used, no real Supabase project was changed, and no `supabase/` files were touched for this work.
 - At completion, `npm run build` and `npx tsx scripts/test-public-application.ts` passed. Typecheck reported only the previously noted `src/routes/__root.tsx` error. The recruiter preview displayed the demo account chooser, so authenticated UI interaction was not verified.
+
+## 15. Driver handbook signing and receipts
+
+- Added the `/portal/handbook` page with the published current handbook, version/effective date, change summary, accessible sections, driver acknowledgement, download gating, signed receipt downloads, and signature history. Administrators and content managers can preview the published handbook without signing; recruiters cannot access it.
+- Added handbook version `change_summary` to the manager form and server-side resource allowlist. The demo seed now includes an approved, published `Driver Handbook (sample content)` version and no acknowledgement records.
+- Added append-only `handbook_acknowledgements` records in the demo store. Driver signing validates the current approved, published, non-archived, effective version, stores the version-specific statement, typed name, server timestamp, source metadata, and SHA-256 hash of the published section titles and bodies, and writes a `handbook_signed` audit entry. Repeated signing is idempotent. Current-version downloads require that driver's signature; receipts are owner/admin restricted.
+- Replaced the Driver Hub handbook content panel with a current-version status card and link, and added Handbook navigation for drivers, administrators, and content managers.
+- Added `scripts/test-handbook.ts` for signing validation, idempotency, version changes, download gating, receipt privacy, content hashing, and API surface checks. `npx tsx scripts/test-handbook.ts` and the public application regression suite passed at completion.
+- Files included `src/lib/handbook.functions.ts`, `src/lib/application-schema.ts`, `src/lib/mock/db.ts`, `src/lib/ops.functions.ts`, `src/lib/resource-fields.ts`, `src/routes/_authenticated/portal.handbook.tsx`, `src/routes/_authenticated/portal.driver.tsx`, `src/components/portal/PortalShell.tsx`, `scripts/test-handbook.ts`, and the related public application test expectation. No `supabase/`, `.env`, or Supabase client/middleware files were changed.
+- This project currently runs the demo store in browser `localStorage`; the signing and audit workflow is not a durable production database security boundary. The handbook route preview was blank during visual verification because the browser logged a TanStack `AsyncLocalStorage` client runtime error.
+
+## 16. Academy completion engine
+
+- Reseeded the six required Academy courses in order: Welcome to 52 Logistics, Handbook, Required Apps & Systems, Safety Fundamentals, Terminal & Operating Procedures, and Completion & Management Verification. Existing course IDs were retained. Seeded lesson bodies are marked `Draft content, pending owner approval`, each lesson has a default 20-second minimum view time, and courses 1, 3, 4, and 5 have three-question quizzes with an 80% passing score.
+- Added the requested `completion_rules` for lessons, quizzes, acknowledgements, the current handbook signature, required app confirmations, driver certification, and management verification. Module 2 is derived only from signing the current handbook version. Course 3's exact required confirmations are Motive, Whip Around, and MyFleetAI / Linehaul Central access confirmations.
+- Replaced client-controlled lesson completion with server-function actions `openLesson` and `completeLesson`; completion requires elapsed time measured from the recorded lesson-open timestamp. Added audited external-link evidence, configured confirmation evidence, append-only signed module acknowledgements, and server evaluation that derives enrollment status and completion timestamps. Sequential prerequisites are checked on course actions.
+- Added driver certification, administrator-only onboarding verification with a note, and administrator-only module reset. Reset requires a 5–300 character reason, supersedes evidence rather than deleting it, invalidates certification/verification, and writes audit logs.
+- Added Academy overview statuses and missing-requirement lists, a lesson countdown and requirement checklist, and a Driver onboarding table in the Admin console with Verify and Reset actions. Added `min_view_seconds` to the lesson manager and resource allowlist.
+- Added `scripts/test-academy.ts` for minimum lesson timing and strict input, quiz and acknowledgement gates, handbook-derived completion, confirmations, locked actions, role isolation, certification/verification, and audited evidence resets. Academy, handbook, and public application test suites passed; production build passed. Typecheck reported only the allowed pre-existing `src/routes/__root.tsx` error.
+- Files included `src/lib/lms.functions.ts`, `src/lib/mock/db.ts`, `src/lib/resource-fields.ts`, `src/lib/ops.functions.ts`, `src/routes/_authenticated/portal.academy.index.tsx`, `src/routes/_authenticated/portal.academy.$slug.tsx`, `src/routes/_authenticated/portal.admin.index.tsx`, and `scripts/test-academy.ts`. No `supabase/`, `.env`, or Supabase client/middleware files were changed. As with handbook signing, records are currently backed by the demo localStorage store, not durable server-side storage.
+
+## 17. Academy driver-only access UX
+
+- Restricted `/portal/academy` and `/portal/academy/$slug` to drivers. Non-drivers receive the existing AccessDenied UI, and the Academy data queries remain disabled for them so `getAcademyOverview` and `getCourse` are not called.
+- Hid the Driver Academy navigation item for non-drivers. Academy queries show an error state with Retry on failure and disable automatic retries for permission errors.
+- Build, scoped lint, and Academy, handbook, and public application tests passed. Typecheck reported only `src/routes/__root.tsx`. The preview was blank during this check because the browser logged `AsyncLocalStorage is not a constructor` from the existing TanStack client runtime path.
+- Committed and pushed as `245fa89` (`Restrict Academy access to drivers`) on `ai_main_6f105112c61e41078d42`.
+
+## 18. Context log update
+
+- Appended sections 15–17 to record the handbook, Academy completion, and Academy access UX work requested after the earlier project history above.
+- No Supabase schema or migration was applied as part of these prompts; work described in sections 15–17 was implemented in the existing demo application architecture.
