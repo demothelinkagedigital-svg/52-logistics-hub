@@ -147,12 +147,42 @@ function buildCourseContent() {
     lessonTitles: string[];
     quiz: boolean;
   }> = [
-    { courseId: COURSE.orientation, title: "Welcome", lessonTitles: ["Welcome to 52 Logistics", "Your first steps"], quiz: true },
-    { courseId: COURSE.handbook, title: "Handbook", lessonTitles: ["Handbook overview", "Current handbook requirements"], quiz: false },
-    { courseId: COURSE.systems, title: "Apps & Systems", lessonTitles: ["Required apps", "Using company systems"], quiz: true },
-    { courseId: COURSE.safety, title: "Safety Fundamentals", lessonTitles: ["Core safety standards", "Incident response"], quiz: true },
-    { courseId: COURSE.yard, title: "Terminal Operating Procedures", lessonTitles: ["Terminal arrival and movement", "Dock and yard procedures"], quiz: true },
-    { courseId: COURSE.hos, title: "Completion Verification", lessonTitles: ["Completion records", "Manager verification"], quiz: false },
+    {
+      courseId: COURSE.orientation,
+      title: "Welcome",
+      lessonTitles: ["Welcome to 52 Logistics", "Your first steps"],
+      quiz: true,
+    },
+    {
+      courseId: COURSE.handbook,
+      title: "Handbook",
+      lessonTitles: ["Handbook overview", "Current handbook requirements"],
+      quiz: false,
+    },
+    {
+      courseId: COURSE.systems,
+      title: "Apps & Systems",
+      lessonTitles: ["Required apps", "Using company systems"],
+      quiz: true,
+    },
+    {
+      courseId: COURSE.safety,
+      title: "Safety Fundamentals",
+      lessonTitles: ["Core safety standards", "Incident response"],
+      quiz: true,
+    },
+    {
+      courseId: COURSE.yard,
+      title: "Terminal Operating Procedures",
+      lessonTitles: ["Terminal arrival and movement", "Dock and yard procedures"],
+      quiz: true,
+    },
+    {
+      courseId: COURSE.hos,
+      title: "Completion Verification",
+      lessonTitles: ["Completion records", "Manager verification"],
+      quiz: false,
+    },
   ];
 
   plan.forEach(({ courseId, title, lessonTitles, quiz }, ci) => {
@@ -184,21 +214,40 @@ function buildCourseContent() {
       updated_at: daysAgo(20),
     });
     const qBank = [
-      { prompt: "Who do you contact first when a load is running late?", options: ["Your dispatcher", "The customer", "Nobody, just keep driving", "Payroll"], correct: "Your dispatcher" },
-      { prompt: "How soon must an incident be reported?", options: ["Immediately", "Within a week", "At your next home time", "Only if there is damage"], correct: "Immediately" },
-      { prompt: "What is the minimum passing score for this course?", options: ["80%", "50%", "65%", "100%"], correct: "80%" },
+      {
+        prompt: "Who do you contact first when a load is running late?",
+        options: ["Your dispatcher", "The customer", "Nobody, just keep driving", "Payroll"],
+        correct: "Your dispatcher",
+      },
+      {
+        prompt: "How soon must an incident be reported?",
+        options: [
+          "Immediately",
+          "Within a week",
+          "At your next home time",
+          "Only if there is damage",
+        ],
+        correct: "Immediately",
+      },
+      {
+        prompt: "What is the minimum passing score for this course?",
+        options: ["80%", "50%", "65%", "100%"],
+        correct: "80%",
+      },
     ];
-    qBank.forEach((q, qi) => questions.push({
-      id: `f1000000-0000-4000-a000-${String(courseNumber * 100 + qi + 1).padStart(12, "0")}`,
-      quiz_id: quizId,
-      prompt: q.prompt,
-      question_type: "single_choice",
-      options: q.options,
-      correct_answers: [q.correct],
-      explanation: "Review the approved course content and follow current company policy.",
-      sort_order: qi + 1,
-      created_at: daysAgo(120),
-    }));
+    qBank.forEach((q, qi) =>
+      questions.push({
+        id: `f1000000-0000-4000-a000-${String(courseNumber * 100 + qi + 1).padStart(12, "0")}`,
+        quiz_id: quizId,
+        prompt: q.prompt,
+        question_type: "single_choice",
+        options: q.options,
+        correct_answers: [q.correct],
+        explanation: "Review the approved course content and follow current company policy.",
+        sort_order: qi + 1,
+        created_at: daysAgo(120),
+      }),
+    );
   });
   return { modules, lessons, quizzes, questions };
 }
@@ -911,12 +960,92 @@ function seed(): Tables {
       },
     ],
     lms_courses: [
-      { ...courseSeed(COURSE.orientation, "welcome", "Welcome to 52 Logistics", "Welcome to the 52 Logistics Driver Academy.", "onboarding", 20, true, 1), completion_rules: { lessons: true, quiz: true, acknowledgement: true } },
-      { ...courseSeed(COURSE.handbook, "handbook", "Handbook", "Review the current driver handbook and acknowledge its requirements.", "policy", 20, true, 2), completion_rules: { derived: "handbook_signed" } },
-      { ...courseSeed(COURSE.systems, "apps-systems", "Required Apps & Systems", "Required applications and company systems.", "systems", 20, true, 3), completion_rules: { lessons: true, confirmations: ["Motive installed or access confirmed", "Whip Around installed or access confirmed", "MyFleetAI / Linehaul Central access confirmed"], quiz: true } },
-      { ...courseSeed(COURSE.safety, "safety-fundamentals", "Safety Fundamentals", "Core safety standards and incident response.", "safety", 20, true, 4), completion_rules: { lessons: true, quiz: true, acknowledgement: true } },
-      { ...courseSeed(COURSE.yard, "terminal-operating-procedures", "Terminal & Operating Procedures", "Safe terminal, yard and dock operations.", "operations", 20, true, 5), completion_rules: { lessons: true, quiz: true, acknowledgement: true } },
-      { ...courseSeed(COURSE.hos, "completion-verification", "Completion & Management Verification", "Review completion records and manager verification.", "onboarding", 20, true, 6), completion_rules: { certification: true, management_verification: true } },
+      {
+        ...courseSeed(
+          COURSE.orientation,
+          "welcome",
+          "Welcome to 52 Logistics",
+          "Welcome to the 52 Logistics Driver Academy.",
+          "onboarding",
+          20,
+          true,
+          1,
+        ),
+        completion_rules: { lessons: true, quiz: true, acknowledgement: true },
+      },
+      {
+        ...courseSeed(
+          COURSE.handbook,
+          "handbook",
+          "Handbook",
+          "Review the current driver handbook and acknowledge its requirements.",
+          "policy",
+          20,
+          true,
+          2,
+        ),
+        completion_rules: { derived: "handbook_signed" },
+      },
+      {
+        ...courseSeed(
+          COURSE.systems,
+          "apps-systems",
+          "Required Apps & Systems",
+          "Required applications and company systems.",
+          "systems",
+          20,
+          true,
+          3,
+        ),
+        completion_rules: {
+          lessons: true,
+          confirmations: [
+            "Motive installed or access confirmed",
+            "Whip Around installed or access confirmed",
+            "MyFleetAI / Linehaul Central access confirmed",
+          ],
+          quiz: true,
+        },
+      },
+      {
+        ...courseSeed(
+          COURSE.safety,
+          "safety-fundamentals",
+          "Safety Fundamentals",
+          "Core safety standards and incident response.",
+          "safety",
+          20,
+          true,
+          4,
+        ),
+        completion_rules: { lessons: true, quiz: true, acknowledgement: true },
+      },
+      {
+        ...courseSeed(
+          COURSE.yard,
+          "terminal-operating-procedures",
+          "Terminal & Operating Procedures",
+          "Safe terminal, yard and dock operations.",
+          "operations",
+          20,
+          true,
+          5,
+        ),
+        completion_rules: { lessons: true, quiz: true, acknowledgement: true },
+      },
+      {
+        ...courseSeed(
+          COURSE.hos,
+          "completion-verification",
+          "Completion & Management Verification",
+          "Review completion records and manager verification.",
+          "onboarding",
+          20,
+          true,
+          6,
+        ),
+        completion_rules: { certification: true, management_verification: true },
+      },
     ],
     lms_modules: lms.modules,
     lms_lessons: lms.lessons,
@@ -958,19 +1087,25 @@ export function getDb(): Tables {
         const migrations = parsed["demo_migrations"] ?? [];
         if (!migrations.some((row) => row["id"] === "handbook-sample-approved-v1")) {
           const sampleId = fresh["handbook_versions"]![0]!["id"];
-          const sample = (parsed["handbook_versions"] ?? []).find((row) =>
-            row["id"] === sampleId && row["version_label"] === "2026.1" &&
-            row["title"] === "Driver Handbook" &&
-            row["description"] === "Current handbook effective January 2026." &&
-            (row["approval_state"] === "draft" || row["approval_state"] == null) &&
-            row["published"] === true && row["archived_at"] == null &&
-            row["document_url"] == null && row["storage_path"] == null &&
-            row["requires_signature"] === true && row["updated_at"] == null,
+          const sample = (parsed["handbook_versions"] ?? []).find(
+            (row) =>
+              row["id"] === sampleId &&
+              row["version_label"] === "2026.1" &&
+              row["title"] === "Driver Handbook" &&
+              row["description"] === "Current handbook effective January 2026." &&
+              (row["approval_state"] === "draft" || row["approval_state"] == null) &&
+              row["published"] === true &&
+              row["archived_at"] == null &&
+              row["document_url"] == null &&
+              row["storage_path"] == null &&
+              row["requires_signature"] === true &&
+              row["updated_at"] == null,
           );
           if (sample) {
             sample["title"] = "Driver Handbook (sample content)";
             sample["approval_state"] = "approved";
-            sample["description"] = "Sample handbook for demonstration only; verify all policies before use.";
+            sample["description"] =
+              "Sample handbook for demonstration only; verify all policies before use.";
             sample["change_summary"] = "Initial sample handbook release.";
           }
           migrations.push({ id: "handbook-sample-approved-v1" });
@@ -981,11 +1116,43 @@ export function getDb(): Tables {
         const academyMigration = "academy-exact-rules-v2";
         if (!(parsed["demo_migrations"] ?? []).some((row) => row["id"] === academyMigration)) {
           const supersededAt = nowIso();
-          for (const name of ["lms_course_starts", "lms_lesson_opens", "lms_lesson_progress", "lms_quiz_attempts", "lms_external_link_opens", "lms_item_confirmations", "lms_course_acknowledgements", "lms_module_acknowledgements", "lms_enrollments", "lms_driver_certifications", "lms_onboarding_verifications"]) {
+          for (const name of [
+            "lms_course_starts",
+            "lms_lesson_opens",
+            "lms_lesson_progress",
+            "lms_quiz_attempts",
+            "lms_external_link_opens",
+            "lms_item_confirmations",
+            "lms_course_acknowledgements",
+            "lms_module_acknowledgements",
+            "lms_enrollments",
+            "lms_driver_certifications",
+            "lms_onboarding_verifications",
+          ]) {
             for (const row of parsed[name] ?? []) row["superseded_at"] ??= supersededAt;
           }
-          for (const name of ["lms_courses", "lms_modules", "lms_lessons", "lms_quizzes", "lms_quiz_questions"]) parsed[name] = fresh[name]!;
-          for (const name of ["lms_course_starts", "lms_lesson_opens", "lms_lesson_progress", "lms_quiz_attempts", "lms_external_link_opens", "lms_item_confirmations", "lms_course_acknowledgements", "lms_module_acknowledgements", "lms_driver_certifications", "lms_onboarding_verifications", "lms_audit_logs"]) parsed[name] ??= fresh[name]!;
+          for (const name of [
+            "lms_courses",
+            "lms_modules",
+            "lms_lessons",
+            "lms_quizzes",
+            "lms_quiz_questions",
+          ])
+            parsed[name] = fresh[name]!;
+          for (const name of [
+            "lms_course_starts",
+            "lms_lesson_opens",
+            "lms_lesson_progress",
+            "lms_quiz_attempts",
+            "lms_external_link_opens",
+            "lms_item_confirmations",
+            "lms_course_acknowledgements",
+            "lms_module_acknowledgements",
+            "lms_driver_certifications",
+            "lms_onboarding_verifications",
+            "lms_audit_logs",
+          ])
+            parsed[name] ??= fresh[name]!;
           parsed["demo_migrations"]!.push({ id: academyMigration });
         }
         for (const name of ["handbook_versions", "safety_resources"]) {

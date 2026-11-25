@@ -12,10 +12,8 @@ const COURSE_ORDER = [
   "c1000000-0000-4000-a000-000000000006",
 ] as const;
 const CERTIFICATION_COURSES = COURSE_ORDER.slice(0, 5);
-const COURSE_ACKNOWLEDGEMENT_STATEMENT =
-  "I have completed this module and understand its content.";
-const CERTIFICATION_STATEMENT =
-  "I certify that I have completed Academy modules 1 through 5.";
+const COURSE_ACKNOWLEDGEMENT_STATEMENT = "I have completed this module and understand its content.";
+const CERTIFICATION_STATEMENT = "I certify that I have completed Academy modules 1 through 5.";
 const now = () => new Date().toISOString();
 const active = (row: Row) => row["superseded_at"] == null;
 
@@ -114,6 +112,12 @@ function requireCurrentUser(userId: string) {
   return roles;
 }
 
+function requireDriver(userId: string) {
+  requireCurrentUser(userId);
+  if (!demoRoles(userId).includes("driver"))
+    throw new Error("Only drivers can complete Academy activities.");
+}
+
 function requireAdmin(userId: string) {
   requireCurrentUser(userId);
   if (!demoRoles(userId).includes("administrator"))
@@ -124,7 +128,8 @@ function authorizeTarget(actorId: string, targetId: string) {
   requireCurrentUser(actorId);
   if (actorId !== targetId && !demoRoles(actorId).includes("administrator"))
     throw new Error("You don't have permission to access another driver's Academy records.");
-  if (!demoRoles(targetId).includes("driver")) throw new Error("Academy records are only available for drivers.");
+  if (!demoRoles(targetId).includes("driver"))
+    throw new Error("Academy records are only available for drivers.");
 }
 
 function course(courseId: string): Row {
@@ -188,9 +193,7 @@ function currentHandbookSignature(userId: string) {
   return (
     table("handbook_acknowledgements").find(
       (row) =>
-        row["user_id"] === userId &&
-        row["handbook_version_id"] === version["id"] &&
-        active(row),
+        row["user_id"] === userId && row["handbook_version_id"] === version["id"] && active(row),
     ) ?? null
   );
 }
@@ -226,8 +229,7 @@ function evidenceState(userId: string, courseId: string) {
   if (rules["quiz"] === true && !quizPassed) missing.push("quiz");
 
   const handbookSignature = currentHandbookSignature(userId);
-  if (rules["derived"] === "handbook_signed" && !handbookSignature)
-    missing.push("handbook_signed");
+  if (rules["derived"] === "handbook_signed" && !handbookSignature) missing.push("handbook_signed");
 
   const confirmations = Array.isArray(rules["confirmations"])
     ? (rules["confirmations"] as string[])
@@ -344,7 +346,13 @@ function assertCourseUnlocked(userId: string, courseId: string) {
   return evaluation;
 }
 
-function audit(actorId: string, action: string, targetType: string, targetId: string | null, metadata: Row = {}) {
+function audit(
+  actorId: string,
+  action: string,
+  targetType: string,
+  targetId: string | null,
+  metadata: Row = {},
+) {
   const entry = {
     id: uid(),
     actor_id: actorId,
@@ -434,7 +442,11 @@ export const getCourse = createServerFn({ method: "GET" })
     const modules: ModuleDetailRow[] = table("lms_modules")
       .filter((row) => row["course_id"] === courseId)
       .sort((a, b) => Number(a["sort_order"]) - Number(b["sort_order"]))
-      .map((row) => ({ id: String(row["id"]), title: String(row["title"]), sort_order: Number(row["sort_order"]) || 0 }));
+      .map((row) => ({
+        id: String(row["id"]),
+        title: String(row["title"]),
+        sort_order: Number(row["sort_order"]) || 0,
+      }));
     const lessons: LessonDetailRow[] = lessonsFor(courseId).map((lesson) => ({
       id: String(lesson["id"]),
       module_id: String(lesson["module_id"]),
@@ -450,20 +462,21 @@ export const getCourse = createServerFn({ method: "GET" })
       opened_at:
         latestActive(
           table("lms_lesson_opens"),
-          (opened) =>
-            opened["user_id"] === context.userId && opened["lesson_id"] === lesson["id"],
+          (opened) => opened["user_id"] === context.userId && opened["lesson_id"] === lesson["id"],
         )?.["opened_at"] ?? null,
     }));
     const quizRow = table("lms_quizzes").find(
       (row) => row["course_id"] === courseId && row["published"] === true,
     );
-    const quiz: QuizDetailRow = quizRow ? {
-      id: String(quizRow["id"]),
-      title: String(quizRow["title"] ?? "Knowledge check"),
-      instructions: String(quizRow["description"] ?? ""),
-      max_attempts: Number(quizRow["max_attempts"]) || 0,
-      passing_score: Number(quizRow["passing_score"]) || 80,
-    } : null;
+    const quiz: QuizDetailRow = quizRow
+      ? {
+          id: String(quizRow["id"]),
+          title: String(quizRow["title"] ?? "Knowledge check"),
+          instructions: String(quizRow["description"] ?? ""),
+          max_attempts: Number(quizRow["max_attempts"]) || 0,
+          passing_score: Number(quizRow["passing_score"]) || 80,
+        }
+      : null;
     const questions: QuizQuestionRow[] = quiz
       ? table("lms_quiz_questions")
           .filter((row) => row["quiz_id"] === quiz["id"])
@@ -477,16 +490,38 @@ export const getCourse = createServerFn({ method: "GET" })
           }))
       : [];
     const progress: CourseProgressRow[] = table("lms_lesson_progress")
-      .filter((row) => row["user_id"] === context.userId && row["course_id"] === courseId && active(row))
-      .map((row) => ({ lesson_id: String(row["lesson_id"]), completed: row["completed"] === true }));
+      .filter(
+        (row) => row["user_id"] === context.userId && row["course_id"] === courseId && active(row),
+      )
+      .map((row) => ({
+        lesson_id: String(row["lesson_id"]),
+        completed: row["completed"] === true,
+      }));
     const attempts: QuizAttemptRow[] = table("lms_quiz_attempts")
-      .filter((row) => row["user_id"] === context.userId && row["course_id"] === courseId && active(row))
+      .filter(
+        (row) => row["user_id"] === context.userId && row["course_id"] === courseId && active(row),
+      )
       .sort((a, b) => Number(b["attempt_number"]) - Number(a["attempt_number"]))
-      .map((row) => ({ id: String(row["id"]), score: Number(row["score"]) || 0, passed: row["passed"] === true, attempt_number: Number(row["attempt_number"]) || 0, answers: row["answers"] ?? {} }));
+      .map((row) => ({
+        id: String(row["id"]),
+        score: Number(row["score"]) || 0,
+        passed: row["passed"] === true,
+        attempt_number: Number(row["attempt_number"]) || 0,
+        answers: row["answers"] ?? {},
+      }));
     const rules = (selectedCourse["completion_rules"] ?? {}) as Record<string, unknown>;
-    const links: Array<{ link_key: string; label: string; url: string | null }> = table("required_systems")
-      .filter((row) => row["published"] === true && (row["audience"] === "drivers" || row["audience"] === "all"))
-      .map((row) => ({ link_key: String(row["slug"]), label: String(row["name"]), url: row["official_url"] == null ? null : String(row["official_url"]) }));
+    const links: Array<{ link_key: string; label: string; url: string | null }> = table(
+      "required_systems",
+    )
+      .filter(
+        (row) =>
+          row["published"] === true && (row["audience"] === "drivers" || row["audience"] === "all"),
+      )
+      .map((row) => ({
+        link_key: String(row["slug"]),
+        label: String(row["name"]),
+        url: row["official_url"] == null ? null : String(row["official_url"]),
+      }));
     return {
       course: selectedCourse,
       modules,
@@ -502,22 +537,33 @@ export const getCourse = createServerFn({ method: "GET" })
       evidence: {
         handbook_signed: Boolean(currentHandbookSignature(context.userId)),
         confirmations: table("lms_item_confirmations")
-          .filter((row) => row["user_id"] === context.userId && row["course_id"] === courseId && active(row))
+          .filter(
+            (row) =>
+              row["user_id"] === context.userId && row["course_id"] === courseId && active(row),
+          )
           .map((row) => String(row["item_key"])),
         acknowledged: table("lms_course_acknowledgements").some(
-          (row) => row["user_id"] === context.userId && row["course_id"] === courseId && active(row),
+          (row) =>
+            row["user_id"] === context.userId && row["course_id"] === courseId && active(row),
         ),
-        certification: Boolean(evaluation.missing.includes("certification") === false && rules["certification"] === true),
-        management_verification: Boolean(evaluation.missing.includes("management_verification") === false && rules["management_verification"] === true),
+        certification: Boolean(
+          evaluation.missing.includes("certification") === false && rules["certification"] === true,
+        ),
+        management_verification: Boolean(
+          evaluation.missing.includes("management_verification") === false &&
+          rules["management_verification"] === true,
+        ),
       },
     };
   });
 
 export const startCourse = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ course_id: z.string().uuid() }).parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ course_id: z.string().uuid() }).strict().parse(input),
+  )
   .handler(async ({ data, context }) => {
-    requireCurrentUser(context.userId);
+    requireDriver(context.userId);
     course(data.course_id);
     assertCourseUnlocked(context.userId, data.course_id);
     appendEvent("lms_course_starts", context.userId, { course_id: data.course_id });
@@ -526,9 +572,11 @@ export const startCourse = createServerFn({ method: "POST" })
 
 export const openLesson = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ lesson_id: z.string().uuid() }).strict().parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ lesson_id: z.string().uuid() }).strict().parse(input),
+  )
   .handler(async ({ data, context }) => {
-    requireCurrentUser(context.userId);
+    requireDriver(context.userId);
     const lesson = table("lms_lessons").find(
       (row) => row["id"] === data.lesson_id && row["published"] !== false,
     );
@@ -545,9 +593,11 @@ export const openLesson = createServerFn({ method: "POST" })
 
 export const completeLesson = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ lesson_id: z.string().uuid() }).strict().parse(input))
+  .inputValidator((input: unknown) =>
+    z.object({ lesson_id: z.string().uuid() }).strict().parse(input),
+  )
   .handler(async ({ data, context }) => {
-    requireCurrentUser(context.userId);
+    requireDriver(context.userId);
     const lesson = table("lms_lessons").find(
       (row) => row["id"] === data.lesson_id && row["published"] !== false,
     );
@@ -578,10 +628,13 @@ export const completeLesson = createServerFn({ method: "POST" })
 export const logExternalLinkOpened = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ course_id: z.string().uuid(), link_key: z.string().trim().min(1).max(120) }).parse(input),
+    z
+      .object({ course_id: z.string().uuid(), link_key: z.string().trim().min(1).max(120) })
+      .strict()
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
-    requireCurrentUser(context.userId);
+    requireDriver(context.userId);
     course(data.course_id);
     assertCourseUnlocked(context.userId, data.course_id);
     const link = table("required_systems").find(
@@ -604,17 +657,21 @@ export const logExternalLinkOpened = createServerFn({ method: "POST" })
 export const confirmItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ course_id: z.string().uuid(), item_key: z.string().trim().min(1).max(160) }).parse(input),
+    z
+      .object({ course_id: z.string().uuid(), item_key: z.string().trim().min(1).max(160) })
+      .strict()
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
-    requireCurrentUser(context.userId);
+    requireDriver(context.userId);
     const selectedCourse = course(data.course_id);
     assertCourseUnlocked(context.userId, data.course_id);
     const rules = (selectedCourse["completion_rules"] ?? {}) as Record<string, unknown>;
     const configured = Array.isArray(rules["confirmations"])
       ? (rules["confirmations"] as string[])
       : [];
-    if (!configured.includes(data.item_key)) throw new Error("This confirmation is not configured for the course.");
+    if (!configured.includes(data.item_key))
+      throw new Error("This confirmation is not configured for the course.");
     const remaining = evidenceState(context.userId, data.course_id).missing;
     if (remaining.some((item) => !configured.includes(item)))
       throw new Error("Complete the course lessons and quiz before recording confirmations.");
@@ -633,16 +690,23 @@ export const confirmItem = createServerFn({ method: "POST" })
 export const acknowledgeModule = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ course_id: z.string().uuid(), signature_name: z.string().trim().min(2).max(120) }).parse(input),
+    z
+      .object({ course_id: z.string().uuid(), signature_name: z.string().trim().min(2).max(120) })
+      .strict()
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
-    requireCurrentUser(context.userId);
+    requireDriver(context.userId);
     const selectedCourse = course(data.course_id);
     assertCourseUnlocked(context.userId, data.course_id);
     const rules = (selectedCourse["completion_rules"] ?? {}) as Record<string, unknown>;
     if (rules["acknowledgement"] !== true)
       throw new Error("This course does not require a signed acknowledgement.");
-    if (evidenceState(context.userId, data.course_id).missing.some((item) => item !== "acknowledgement"))
+    if (
+      evidenceState(context.userId, data.course_id).missing.some(
+        (item) => item !== "acknowledgement",
+      )
+    )
       throw new Error("Complete the course lessons and quiz before acknowledging this course.");
     const timestamp = now();
     const courseVersion = String(selectedCourse["course_version"] ?? "1.0");
@@ -652,22 +716,34 @@ export const acknowledgeModule = createServerFn({ method: "POST" })
       statement: COURSE_ACKNOWLEDGEMENT_STATEMENT,
       signature_name: data.signature_name,
       signed_at: timestamp,
-      source: { method: "web", user_agent: typeof navigator === "undefined" ? null : navigator.userAgent },
+      source: {
+        method: "web",
+        user_agent: typeof navigator === "undefined" ? null : navigator.userAgent,
+      },
     });
-    audit(context.userId, "academy_course_acknowledged", "lms_course_acknowledgements", record["id"], {
-      course_id: data.course_id,
-      course_version: record["course_version"],
-    });
+    audit(
+      context.userId,
+      "academy_course_acknowledged",
+      "lms_course_acknowledgements",
+      record["id"],
+      {
+        course_id: data.course_id,
+        course_version: record["course_version"],
+      },
+    );
     return record;
   });
 
 export const submitQuiz = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ quiz_id: z.string().uuid(), answers: z.record(z.string(), z.string()) }).parse(input),
+    z
+      .object({ quiz_id: z.string().uuid(), answers: z.record(z.string(), z.string()) })
+      .strict()
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
-    requireCurrentUser(context.userId);
+    requireDriver(context.userId);
     const quiz = table("lms_quizzes").find(
       (row) => row["id"] === data.quiz_id && row["published"] === true,
     );
@@ -677,7 +753,9 @@ export const submitQuiz = createServerFn({ method: "POST" })
     const selectedCourse = course(courseId);
     const rules = (selectedCourse["completion_rules"] ?? {}) as Record<string, unknown>;
     if (rules["quiz"] !== true) throw new Error("This course does not have a required quiz.");
-    if (lessonsFor(courseId).some((lesson) => !lessonIsComplete(context.userId, String(lesson["id"]))))
+    if (
+      lessonsFor(courseId).some((lesson) => !lessonIsComplete(context.userId, String(lesson["id"])))
+    )
       throw new Error("Complete every lesson before taking the quiz.");
     const questions = table("lms_quiz_questions")
       .filter((row) => row["quiz_id"] === quiz["id"])
@@ -713,7 +791,9 @@ export const submitQuiz = createServerFn({ method: "POST" })
         explanation: String(question["explanation"] ?? ""),
       };
     });
-    const score = Math.round((results.filter((row) => row.correct).length / questions.length) * 100);
+    const score = Math.round(
+      (results.filter((row) => row.correct).length / questions.length) * 100,
+    );
     const passed = score >= Number(quiz["passing_score"] ?? 80);
     const attempt = appendEvent("lms_quiz_attempts", context.userId, {
       quiz_id: quiz["id"],
@@ -741,11 +821,15 @@ export const submitQuiz = createServerFn({ method: "POST" })
 export const driverCertify = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ signature_name: z.string().trim().min(2).max(120) }).parse(input),
+    z
+      .object({ signature_name: z.string().trim().min(2).max(120) })
+      .strict()
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const roles = requireCurrentUser(context.userId);
-    if (!roles.includes("driver")) throw new Error("Only a driver can certify their own Academy completion.");
+    if (!roles.includes("driver"))
+      throw new Error("Only a driver can certify their own Academy completion.");
     const evaluations = CERTIFICATION_COURSES.map((id) => evaluateModule(context.userId, id));
     if (evaluations.some((result) => !result.complete))
       throw new Error("Complete Academy modules 1 through 5 before certifying.");
@@ -754,7 +838,10 @@ export const driverCertify = createServerFn({ method: "POST" })
       course_ids: [...CERTIFICATION_COURSES],
       signature_name: data.signature_name,
       statement: CERTIFICATION_STATEMENT,
-      source: { method: "web", user_agent: typeof navigator === "undefined" ? null : navigator.userAgent },
+      source: {
+        method: "web",
+        user_agent: typeof navigator === "undefined" ? null : navigator.userAgent,
+      },
       certified_at: timestamp,
     });
     audit(context.userId, "academy_driver_certified", "lms_driver_certifications", record["id"], {
@@ -767,7 +854,10 @@ export const driverCertify = createServerFn({ method: "POST" })
 export const verifyOnboarding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ driver_id: z.string().uuid(), note: z.string().trim().min(1).max(500) }).parse(input),
+    z
+      .object({ driver_id: z.string().uuid(), note: z.string().trim().min(1).max(500) })
+      .strict()
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     requireAdmin(context.userId);
@@ -789,25 +879,39 @@ export const verifyOnboarding = createServerFn({ method: "POST" })
       certification_id: certification["id"],
       course_ids: [...CERTIFICATION_COURSES],
     });
-    audit(context.userId, "academy_onboarding_verified", "lms_onboarding_verifications", record["id"], {
-      driver_id: data.driver_id,
-      certification_id: certification["id"],
-      note: data.note,
-    });
+    audit(
+      context.userId,
+      "academy_onboarding_verified",
+      "lms_onboarding_verifications",
+      record["id"],
+      {
+        driver_id: data.driver_id,
+        certification_id: certification["id"],
+        note: data.note,
+      },
+    );
     return record;
   });
 
 export const resetModule = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z.object({ user_id: z.string().uuid(), course_id: z.string().uuid(), reason: z.string().trim().min(5).max(300) }).parse(input),
+    z
+      .object({
+        user_id: z.string().uuid(),
+        course_id: z.string().uuid(),
+        reason: z.string().trim().min(5).max(300),
+      })
+      .strict()
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     requireAdmin(context.userId);
-    if (!demoRoles(data.user_id).includes("driver")) throw new Error("Only driver Academy records can be reset.");
+    if (!demoRoles(data.user_id).includes("driver"))
+      throw new Error("Only driver Academy records can be reset.");
     const selectedCourse = course(data.course_id);
-    const index = courseIndex(data.course_id);
-    const affected = COURSE_ORDER.slice(index);
+    courseIndex(data.course_id);
+    const affected = [data.course_id];
     const affectedSet = new Set<string>(affected);
     const stamp = now();
     const eventTables = [
@@ -822,20 +926,23 @@ export const resetModule = createServerFn({ method: "POST" })
     ];
     for (const name of eventTables)
       for (const row of table(name))
-        if (row["user_id"] === data.user_id && affectedSet.has(String(row["course_id"])) && active(row))
+        if (
+          row["user_id"] === data.user_id &&
+          affectedSet.has(String(row["course_id"])) &&
+          active(row)
+        )
           row["superseded_at"] = stamp;
     for (const row of table("lms_enrollments"))
-      if (row["user_id"] === data.user_id && affectedSet.has(String(row["course_id"])) && active(row))
+      if (
+        row["user_id"] === data.user_id &&
+        affectedSet.has(String(row["course_id"])) &&
+        active(row)
+      )
         row["superseded_at"] = stamp;
-    if (CERTIFICATION_COURSES.some((id) => affectedSet.has(id))) {
-      for (const name of ["lms_driver_certifications", "lms_onboarding_verifications"])
-        for (const row of table(name))
-          if (
-            (row["user_id"] === data.user_id || row["driver_id"] === data.user_id) &&
-            active(row)
-          )
-            row["superseded_at"] = stamp;
-    }
+    for (const name of ["lms_driver_certifications", "lms_onboarding_verifications"])
+      for (const row of table(name))
+        if ((row["user_id"] === data.user_id || row["driver_id"] === data.user_id) && active(row))
+          row["superseded_at"] = stamp;
     audit(context.userId, "academy_module_reset", "lms_courses", selectedCourse["id"], {
       user_id: data.user_id,
       reason: data.reason,
@@ -848,25 +955,39 @@ export const resetModule = createServerFn({ method: "POST" })
 
 export const listDriverOnboarding = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<Array<{ user_id: string; profile: DriverProfile | null; evaluations: ModuleEvaluation[]; certification: Row | null; verification: Row | null }>> => {
-    requireAdmin(context.userId);
-    return table("user_roles")
-      .filter((row) => row["role"] === "driver")
-      .map((role) => {
-        const userId = String(role["user_id"]);
-        const evaluations = COURSE_ORDER.map((id) => evaluateModule(userId, id));
-        return {
-          user_id: userId,
-          profile: (table("profiles").find((row) => row["id"] === userId) as DriverProfile | undefined) ?? null,
-          evaluations,
-          certification: latestActive(
-            table("lms_driver_certifications"),
-            (row) => row["user_id"] === userId,
-          ),
-          verification: latestActive(
-            table("lms_onboarding_verifications"),
-            (row) => row["driver_id"] === userId,
-          ),
-        };
-      });
-  });
+  .handler(
+    async ({
+      context,
+    }): Promise<
+      Array<{
+        user_id: string;
+        profile: DriverProfile | null;
+        evaluations: ModuleEvaluation[];
+        certification: Row | null;
+        verification: Row | null;
+      }>
+    > => {
+      requireAdmin(context.userId);
+      return table("user_roles")
+        .filter((row) => row["role"] === "driver")
+        .map((role) => {
+          const userId = String(role["user_id"]);
+          const evaluations = COURSE_ORDER.map((id) => evaluateModule(userId, id));
+          return {
+            user_id: userId,
+            profile:
+              (table("profiles").find((row) => row["id"] === userId) as
+                DriverProfile | undefined) ?? null,
+            evaluations,
+            certification: latestActive(
+              table("lms_driver_certifications"),
+              (row) => row["user_id"] === userId,
+            ),
+            verification: latestActive(
+              table("lms_onboarding_verifications"),
+              (row) => row["driver_id"] === userId,
+            ),
+          };
+        });
+    },
+  );

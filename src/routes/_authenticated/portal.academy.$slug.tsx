@@ -312,11 +312,31 @@ function CoursePlayer() {
               {[
                 ["lessons", "Complete all lessons", missingRequirements.includes("lessons")],
                 ["quiz", "Pass the knowledge check", missingRequirements.includes("quiz")],
-                ["handbook_signed", "Sign the current handbook", missingRequirements.includes("handbook_signed")],
-                ...((Array.isArray(completionRules["confirmations"]) ? completionRules["confirmations"] : []) as string[]).map((key) => [key, key, missingRequirements.includes(key)]),
-                ["acknowledgement", "Acknowledge this course", missingRequirements.includes("acknowledgement")],
-                ["certification", "Record driver certification", missingRequirements.includes("certification")],
-                ["management_verification", "Management verification", missingRequirements.includes("management_verification")],
+                [
+                  "handbook_signed",
+                  "Sign the current handbook",
+                  missingRequirements.includes("handbook_signed"),
+                ],
+                ...(
+                  (Array.isArray(completionRules["confirmations"])
+                    ? completionRules["confirmations"]
+                    : []) as string[]
+                ).map((key) => [key, key, missingRequirements.includes(key)]),
+                [
+                  "acknowledgement",
+                  "Acknowledge this course",
+                  missingRequirements.includes("acknowledgement"),
+                ],
+                [
+                  "certification",
+                  "Record driver certification",
+                  missingRequirements.includes("certification"),
+                ],
+                [
+                  "management_verification",
+                  "Management verification",
+                  missingRequirements.includes("management_verification"),
+                ],
               ]
                 .filter(([key]) => {
                   if (key === "lessons") return completionRules["lessons"] === true;
@@ -324,8 +344,12 @@ function CoursePlayer() {
                   if (key === "handbook_signed") return derivedFromHandbook;
                   if (key === "acknowledgement") return completionRules["acknowledgement"] === true;
                   if (key === "certification") return completionRules["certification"] === true;
-                  if (key === "management_verification") return completionRules["management_verification"] === true;
-                  return Array.isArray(completionRules["confirmations"]) && completionRules["confirmations"].includes(key);
+                  if (key === "management_verification")
+                    return completionRules["management_verification"] === true;
+                  return (
+                    Array.isArray(completionRules["confirmations"]) &&
+                    completionRules["confirmations"].includes(key)
+                  );
                 })
                 .map(([key, label, missing]) => (
                   <li key={String(key)} className="flex items-center gap-2">
@@ -351,7 +375,8 @@ function CoursePlayer() {
                       disabled={savingEvidence}
                       onClick={() =>
                         void saveEvidence(
-                          () => confirmItemFn({ data: { course_id: data.course.id, item_key: key } }),
+                          () =>
+                            confirmItemFn({ data: { course_id: data.course.id, item_key: key } }),
                           "Requirement confirmed",
                         )
                       }
@@ -464,7 +489,9 @@ function CoursePlayer() {
                       </li>
                     ))}
                   </ul>
-                  {!result.passed && result.attempts_remaining != null && result.attempts_remaining > 0 ? (
+                  {!result.passed &&
+                  result.attempts_remaining != null &&
+                  result.attempts_remaining > 0 ? (
                     <button
                       type="button"
                       onClick={() => {
