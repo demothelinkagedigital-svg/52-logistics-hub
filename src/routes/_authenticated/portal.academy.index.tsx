@@ -148,28 +148,14 @@ function AcademyCatalog() {
 
           <ol className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">
             {data.courses.map((course) => {
-              const rules = (course["completion_rules"] ?? {}) as Record<string, unknown>;
-              const handbookDerived = rules["requires_current_handbook_signature"] === true;
-              const handbookMissing = course.missing_requirements ?? [];
-              const handbookSigned = !handbookMissing.includes("current_handbook_signature");
-              const handbookComplete =
-                handbookSigned && handbookMissing.every((item) => item === "lessons");
+              const missingRequirements = course.missing ?? [];
               const status = !course.prerequisites_met
                 ? "Locked"
-                : handbookDerived
-                  ? handbookComplete
-                    ? "Complete"
-                    : course.status === "in_progress"
-                      ? "In progress"
-                      : "Not started"
-                  : course.status === "completed"
-                    ? "Complete"
-                    : course.status === "in_progress"
-                      ? "In progress"
-                      : "Not started";
-              const missingRequirements = handbookDerived
-                ? handbookMissing.filter((item) => item !== "lessons")
-                : course.missing_requirements;
+                : course.complete
+                  ? "Complete"
+                  : course.status === "in_progress"
+                    ? "In progress"
+                    : "Not started";
               return (
                 <li key={course.id} className="bg-surface">
                   <article className="flex h-full flex-col p-6">

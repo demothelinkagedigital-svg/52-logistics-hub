@@ -94,6 +94,7 @@ function courseSeed(
     id,
     slug,
     title,
+    course_version: "1.0",
     summary,
     description: `${summary} This course is part of the 52 Logistics Driver Academy and combines short lessons with a knowledge check.`,
     category,
@@ -910,12 +911,12 @@ function seed(): Tables {
       },
     ],
     lms_courses: [
-      { ...courseSeed(COURSE.orientation, "welcome", "Welcome", "Welcome to the 52 Logistics Driver Academy.", "onboarding", 20, true, 1), completion_rules: { required: true, prerequisite_course_ids: [], requires_all_lessons: true, requires_quiz: true } },
-      { ...courseSeed(COURSE.handbook, "handbook", "Handbook", "Review the current driver handbook and acknowledge its requirements.", "policy", 20, true, 2), completion_rules: { required: true, prerequisite_course_ids: [COURSE.orientation], requires_all_lessons: true, requires_quiz: false, requires_current_handbook_signature: true, requires_module_acknowledgement: true } },
-      { ...courseSeed(COURSE.systems, "apps-systems", "Apps & Systems", "Required applications and company systems.", "systems", 20, true, 3), completion_rules: { required: true, prerequisite_course_ids: [COURSE.handbook], requires_all_lessons: true, requires_quiz: true, requires_external_link_open: true } },
-      { ...courseSeed(COURSE.safety, "safety-fundamentals", "Safety Fundamentals", "Core safety standards and incident response.", "safety", 20, true, 4), completion_rules: { required: true, prerequisite_course_ids: [COURSE.systems], requires_all_lessons: true, requires_quiz: true, requires_item_confirmation: true } },
-      { ...courseSeed(COURSE.yard, "terminal-operating-procedures", "Terminal Operating Procedures", "Safe terminal, yard and dock operations.", "operations", 20, true, 5), completion_rules: { required: true, prerequisite_course_ids: [COURSE.safety], requires_all_lessons: true, requires_quiz: true, requires_module_acknowledgement: true } },
-      { ...courseSeed(COURSE.hos, "completion-verification", "Completion Verification", "Review completion records and manager verification.", "onboarding", 20, true, 6), completion_rules: { required: false, prerequisite_course_ids: [COURSE.yard], requires_all_lessons: true, requires_quiz: false } },
+      { ...courseSeed(COURSE.orientation, "welcome", "Welcome to 52 Logistics", "Welcome to the 52 Logistics Driver Academy.", "onboarding", 20, true, 1), completion_rules: { lessons: true, quiz: true, acknowledgement: true } },
+      { ...courseSeed(COURSE.handbook, "handbook", "Handbook", "Review the current driver handbook and acknowledge its requirements.", "policy", 20, true, 2), completion_rules: { derived: "handbook_signed" } },
+      { ...courseSeed(COURSE.systems, "apps-systems", "Required Apps & Systems", "Required applications and company systems.", "systems", 20, true, 3), completion_rules: { lessons: true, confirmations: ["Motive installed or access confirmed", "Whip Around installed or access confirmed", "MyFleetAI / Linehaul Central access confirmed"], quiz: true } },
+      { ...courseSeed(COURSE.safety, "safety-fundamentals", "Safety Fundamentals", "Core safety standards and incident response.", "safety", 20, true, 4), completion_rules: { lessons: true, quiz: true, acknowledgement: true } },
+      { ...courseSeed(COURSE.yard, "terminal-operating-procedures", "Terminal & Operating Procedures", "Safe terminal, yard and dock operations.", "operations", 20, true, 5), completion_rules: { lessons: true, quiz: true, acknowledgement: true } },
+      { ...courseSeed(COURSE.hos, "completion-verification", "Completion & Management Verification", "Review completion records and manager verification.", "onboarding", 20, true, 6), completion_rules: { certification: true, management_verification: true } },
     ],
     lms_modules: lms.modules,
     lms_lessons: lms.lessons,
@@ -928,6 +929,7 @@ function seed(): Tables {
     lms_lesson_opens: [],
     lms_external_link_opens: [],
     lms_item_confirmations: [],
+    lms_course_acknowledgements: [],
     lms_module_acknowledgements: [],
     lms_driver_certifications: [],
     lms_onboarding_verifications: [],
@@ -976,11 +978,14 @@ export function getDb(): Tables {
         }
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
-        const academyMigration = "academy-server-enforced-v1";
+        const academyMigration = "academy-exact-rules-v2";
         if (!(parsed["demo_migrations"] ?? []).some((row) => row["id"] === academyMigration)) {
-          for (const name of ["lms_courses", "lms_modules", "lms_lessons", "lms_quizzes", "lms_quiz_questions"]) {
-            parsed[name] = fresh[name]!;
+          const supersededAt = nowIso();
+          for (const name of ["lms_course_starts", "lms_lesson_opens", "lms_lesson_progress", "lms_quiz_attempts", "lms_external_link_opens", "lms_item_confirmations", "lms_course_acknowledgements", "lms_module_acknowledgements", "lms_enrollments", "lms_driver_certifications", "lms_onboarding_verifications"]) {
+            for (const row of parsed[name] ?? []) row["superseded_at"] ??= supersededAt;
           }
+          for (const name of ["lms_courses", "lms_modules", "lms_lessons", "lms_quizzes", "lms_quiz_questions"]) parsed[name] = fresh[name]!;
+          for (const name of ["lms_course_starts", "lms_lesson_opens", "lms_lesson_progress", "lms_quiz_attempts", "lms_external_link_opens", "lms_item_confirmations", "lms_course_acknowledgements", "lms_module_acknowledgements", "lms_driver_certifications", "lms_onboarding_verifications", "lms_audit_logs"]) parsed[name] ??= fresh[name]!;
           parsed["demo_migrations"]!.push({ id: academyMigration });
         }
         for (const name of ["handbook_versions", "safety_resources"]) {

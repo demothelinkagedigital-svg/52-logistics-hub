@@ -94,9 +94,10 @@ function CoursePlayer() {
   const currentIndex = current ? ordered.findIndex((l) => l.id === current.id) : -1;
   const percent = ordered.length ? Math.round((completedIds.size / ordered.length) * 100) : 0;
   const completionRules = (data?.course["completion_rules"] ?? {}) as Record<string, unknown>;
-  const derivedFromHandbook = completionRules["requires_current_handbook_signature"] === true;
+  const derivedFromHandbook = completionRules["derived"] === "handbook_signed";
   const allLessonsDone =
-    derivedFromHandbook || (ordered.length > 0 && completedIds.size === ordered.length);
+    completionRules["lessons"] !== true ||
+    (ordered.length > 0 && completedIds.size === ordered.length);
   const bestAttempt = data?.attempts[0] ?? null;
   const quizPassed = data?.attempts.some((a) => a.passed) ?? false;
 
@@ -128,10 +129,10 @@ function CoursePlayer() {
     }
   }
 
-  async function openExternalLink(url: string, itemId: string) {
+  async function openExternalLink(url: string, linkKey: string) {
     const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
     try {
-      await logLink({ data: { course_id: data!.course.id, item_id: itemId } });
+      await logLink({ data: { course_id: data!.course.id, link_key: linkKey } });
       await queryClient.invalidateQueries({ queryKey: ["academy-course", slug] });
       await queryClient.invalidateQueries({ queryKey: ["academy-overview"] });
       if (popup) popup.location.href = url;
@@ -177,8 +178,8 @@ function CoursePlayer() {
   if (isLoading) return <TableSkeleton rows={8} />;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
   if (!data) return null;
-  const evaluation = data.evaluation as typeof data.evaluation & { missing?: string[] };
-  const missingRequirements = evaluation.missing ?? evaluation.missing_requirements ?? [];
+  const evaluation = data.evaluation;
+  const missingRequirements = evaluation.missing;
 
   async function handleQuizSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -311,43 +312,23 @@ function CoursePlayer() {
               {[
                 ["lessons", "Complete all lessons", missingRequirements.includes("lessons")],
                 ["quiz", "Pass the knowledge check", missingRequirements.includes("quiz")],
-                [
-                  "current_handbook_signature",
-                  "Sign the current handbook",
-                  missingRequirements.includes("current_handbook_signature"),
-                ],
-                [
-                  "external_link_open",
-                  "Open the required external link",
-                  missingRequirements.includes("external_link_open"),
-                ],
-                [
-                  "item_confirmation",
-                  "Confirm the required item",
-                  missingRequirements.includes("item_confirmation"),
-                ],
-                [
-                  "module_acknowledgement",
-                  "Acknowledge this module",
-                  missingRequirements.includes("module_acknowledgement"),
-                ],
+                ["handbook_signed", "Sign the current handbook", missingRequirements.includes("handbook_signed")],
+                ...((Array.isArray(completionRules["confirmations"]) ? completionRules["confirmations"] : []) as string[]).map((key) => [key, key, missingRequirements.includes(key)]),
+                ["acknowledgement", "Acknowledge this course", missingRequirements.includes("acknowledgement")],
+                ["certification", "Record driver certification", missingRequirements.includes("certification")],
+                ["management_verification", "Management verification", missingRequirements.includes("management_verification")],
               ]
                 .filter(([key]) => {
-                  if (derivedFromHandbook && key === "lessons") return false;
-                  return key === "lessons"
-                    ? completionRules.requires_all_lessons === true
-                    : key === "quiz"
-                      ? completionRules.requires_quiz === true
-                      : key === "current_handbook_signature"
-                        ? completionRules.requires_current_handbook_signature === true
-                        : key === "external_link_open"
-                          ? completionRules.requires_external_link_open === true
-                          : key === "item_confirmation"
-                            ? completionRules.requires_item_confirmation === true
-                            : completionRules.requires_module_acknowledgement === true;
+                  if (key === "lessons") return completionRules["lessons"] === true;
+                  if (key === "quiz") return completionRules["quiz"] === true;
+                  if (key === "handbook_signed") return derivedFromHandbook;
+                  if (key === "acknowledgement") return completionRules["acknowledgement"] === true;
+                  if (key === "certification") return completionRules["certification"] === true;
+                  if (key === "management_verification") return completionRules["management_verification"] === true;
+                  return Array.isArray(completionRules["confirmations"]) && completionRules["confirmations"].includes(key);
                 })
                 .map(([key, label, missing]) => (
-                  <li key={key} className="flex items-center gap-2">
+                  <li key={String(key)} className="flex items-center gap-2">
                     {missing ? (
                       <Circle className="size-4 text-muted-foreground" aria-hidden="true" />
                     ) : (
@@ -360,29 +341,28 @@ function CoursePlayer() {
                   </li>
                 ))}
             </ul>
-            {completionRules.requires_item_confirmation === true &&
-            missingRequirements.includes("item_confirmation") &&
-            data.modules[0] ? (
-              <button
-                type="button"
-                disabled={savingEvidence}
-                onClick={() =>
-                  void saveEvidence(
-                    () =>
-                      confirmItemFn({
-                        data: { course_id: data.course.id, item_id: data.modules[0]!.id },
-                      }),
-                    "Requirement confirmed",
-                  )
-                }
-                className="mt-4 min-h-10 rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary disabled:opacity-60"
-              >
-                Confirm requirement
-              </button>
-            ) : null}
-            {completionRules.requires_module_acknowledgement === true &&
-            missingRequirements.includes("module_acknowledgement") &&
-            data.modules[0] ? (
+            {Array.isArray(completionRules["confirmations"])
+              ? (completionRules["confirmations"] as string[])
+                  .filter((key) => missingRequirements.includes(key))
+                  .map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={savingEvidence}
+                      onClick={() =>
+                        void saveEvidence(
+                          () => confirmItemFn({ data: { course_id: data.course.id, item_key: key } }),
+                          "Requirement confirmed",
+                        )
+                      }
+                      className="mt-4 mr-2 min-h-10 rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary disabled:opacity-60"
+                    >
+                      Confirm: {key}
+                    </button>
+                  ))
+              : null}
+            {completionRules["acknowledgement"] === true &&
+            missingRequirements.includes("acknowledgement") ? (
               <button
                 type="button"
                 disabled={savingEvidence}
@@ -394,11 +374,7 @@ function CoursePlayer() {
                   void saveEvidence(
                     () =>
                       acknowledgeModuleFn({
-                        data: {
-                          module_id: data.modules[0]!.id,
-                          course_id: data.course.id,
-                          signature_name: signature_name.trim(),
-                        } as { module_id: string },
+                        data: { course_id: data.course.id, signature_name: signature_name.trim() },
                       }),
                     "Module acknowledged",
                   );
@@ -408,26 +384,21 @@ function CoursePlayer() {
                 Acknowledge module
               </button>
             ) : null}
-            {completionRules.requires_external_link_open === true &&
-            missingRequirements.includes("external_link_open") &&
-            completionRules.required_system_id &&
-            completionRules.external_link_url ? (
+            {data.links.map((link) => (
               <a
-                href={String(completionRules.external_link_url)}
+                key={link.link_key}
+                href={String(link.url ?? "#")}
                 target="_blank"
                 rel="noreferrer"
                 onClick={(event) => {
                   event.preventDefault();
-                  void openExternalLink(
-                    String(completionRules.external_link_url),
-                    String(completionRules.required_system_id),
-                  );
+                  if (link.url) void openExternalLink(String(link.url), link.link_key);
                 }}
-                className="mt-4 inline-flex min-h-10 items-center rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary"
+                className="mt-4 mr-2 inline-flex min-h-10 items-center rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary"
               >
-                Open required external link
+                Open {link.label}
               </a>
-            ) : null}
+            ))}
           </Panel>
 
           {mode === "quiz" && data.quiz ? (
@@ -493,7 +464,7 @@ function CoursePlayer() {
                       </li>
                     ))}
                   </ul>
-                  {!result.passed && result.attempts_remaining > 0 ? (
+                  {!result.passed && result.attempts_remaining != null && result.attempts_remaining > 0 ? (
                     <button
                       type="button"
                       onClick={() => {

@@ -66,7 +66,7 @@ function AdminPage() {
     const note = window.prompt("Verification note:");
     if (note === null || !note.trim()) return;
     try {
-      await verifyDriver({ data: { user_id: userId, note: note.trim() } as { user_id: string } });
+      await verifyDriver({ data: { driver_id: userId, note: note.trim() } });
       await queryClient.invalidateQueries({ queryKey: ["admin-driver-onboarding"] });
       toast.success("Driver onboarding verified");
     } catch (e) {
@@ -212,7 +212,7 @@ function AdminPage() {
               <tbody className="divide-y divide-border">
                 {onboarding.data.map((driver) => {
                   const completed = driver.evaluations.filter(
-                    (evaluation) => evaluation.completed,
+                    (evaluation) => evaluation.complete,
                   ).length;
                   return (
                     <tr key={driver.user_id}>
