@@ -331,7 +331,11 @@ for (const resource of ["jobs", "lms_courses"] as const) {
 }
 
 for (const resource of ["handbook_versions", "safety_resources"] as const) {
-  assert.ok(table(resource).every((row) => row["approval_state"] === "draft"));
+  if (resource === "handbook_versions") {
+    assert.equal(table(resource)[0]?.["approval_state"], "approved");
+  } else {
+    assert.ok(table(resource).every((row) => row["approval_state"] === "draft"));
+  }
   const created = await saveResource({ data: { resource, values: { title: "New item" } } });
   assert.equal(table(resource).find((row) => row["id"] === created.id)?.["approval_state"], "draft");
   await assert.rejects(saveResource({ data: { resource, id: created.id!, values: { approval_state: "invalid" } } }));

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
 import {
   Bell,
+  BookOpen,
   FileStack,
   GraduationCap,
   Home as HomeIcon,
@@ -37,10 +38,16 @@ export function PortalShell({ children }: { children: ReactNode }) {
     { to: "/portal" as const, label: "Home", icon: HomeIcon, show: true, exact: true },
     { to: "/portal/driver" as const, label: "Driver hub", icon: Truck, show: isDriver },
     {
+      to: "/portal/handbook" as const,
+      label: "Handbook",
+      icon: BookOpen,
+      show: isDriver || roles.includes("administrator") || roles.includes("content_manager"),
+    },
+    {
       to: "/portal/academy" as const,
       label: "Driver Academy",
       icon: GraduationCap,
-      show: isDriver || isAdmin,
+      show: isDriver,
     },
     { to: "/portal/notifications" as const, label: "Notifications", icon: Bell, show: true },
     { to: "/portal/recruiting" as const, label: "Recruiting", icon: Users, show: isRecruiter },
@@ -146,7 +153,6 @@ export function PortalShell({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
-
     </div>
   );
 }

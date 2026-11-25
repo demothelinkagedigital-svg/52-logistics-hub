@@ -94,6 +94,7 @@ function courseSeed(
     id,
     slug,
     title,
+    course_version: "1.0",
     summary,
     description: `${summary} This course is part of the 52 Logistics Driver Academy and combines short lessons with a knowledge check.`,
     category,
@@ -117,15 +118,16 @@ function courseSeed(
 
 function lessonsFor(courseId: string, moduleId: string, titles: string[], startSort = 1) {
   return titles.map((title, i) => ({
-    id: `${courseId.slice(0, 28)}${(startSort + i).toString().padStart(2, "0")}l${i}`.slice(0, 36),
+    id: `d2000000-0000-4000-a000-${String(Number(courseId.slice(-3)) * 100 + i + 1).padStart(12, "0")}`,
     course_id: courseId,
     module_id: moduleId,
     title,
     slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
     lesson_type: "text",
-    body: `## ${title}\n\nThis is demo learning content for the 52 Logistics Driver Academy. In a live deployment this section holds the written policy, supporting photos and a short video walkthrough.\n\n- Review the standard before your next dispatch\n- Ask your fleet manager if anything is unclear\n- Complete the knowledge check at the end of the course`,
+    body: "Draft content, pending owner approval",
     media_url: null,
-    duration_minutes: 6,
+    duration_minutes: 1,
+    min_view_seconds: 20,
     sort_order: startSort + i,
     published: true,
     created_at: daysAgo(120),
@@ -139,78 +141,67 @@ function buildCourseContent() {
   const quizzes: Row[] = [];
   const questions: Row[] = [];
 
-  const plan: Array<[string, string, string[][]]> = [
-    [
-      COURSE.orientation,
-      "Welcome to 52 Logistics",
-      [["Who we are and how we dispatch", "Your first week", "Pay, settlements and support"]],
-    ],
-    [
-      COURSE.handbook,
-      "Driver Handbook Essentials",
-      [
-        [
-          "Attendance and communication",
-          "Uniform, conduct and customer sites",
-          "Time off and payroll basics",
-        ],
-      ],
-    ],
-    [
-      COURSE.systems,
-      "Systems & Apps",
-      [["ELD setup and daily use", "Dispatch messaging", "Document capture and scanning"]],
-    ],
-    [
-      COURSE.safety,
-      "Safety Fundamentals",
-      [
-        [
-          "Pre-trip and post-trip inspection",
-          "Defensive driving and following distance",
-          "Incident and accident reporting",
-        ],
-      ],
-    ],
-    [
-      COURSE.yard,
-      "Yard & Dock Operations",
-      [
-        [
-          "Yard entry and check-in",
-          "Backing, spotting and coupling",
-          "Dock etiquette and detention",
-        ],
-      ],
-    ],
-    [
-      COURSE.hos,
-      "Hours of Service",
-      [
-        [
-          "The 11 and 14 hour rules",
-          "Breaks, sleeper berth and restarts",
-          "Logging exceptions correctly",
-        ],
-      ],
-    ],
+  const plan: Array<{
+    courseId: string;
+    title: string;
+    lessonTitles: string[];
+    quiz: boolean;
+  }> = [
+    {
+      courseId: COURSE.orientation,
+      title: "Welcome",
+      lessonTitles: ["Welcome to 52 Logistics", "Your first steps"],
+      quiz: true,
+    },
+    {
+      courseId: COURSE.handbook,
+      title: "Handbook",
+      lessonTitles: ["Handbook overview", "Current handbook requirements"],
+      quiz: false,
+    },
+    {
+      courseId: COURSE.systems,
+      title: "Apps & Systems",
+      lessonTitles: ["Required apps", "Using company systems"],
+      quiz: true,
+    },
+    {
+      courseId: COURSE.safety,
+      title: "Safety Fundamentals",
+      lessonTitles: ["Core safety standards", "Incident response"],
+      quiz: true,
+    },
+    {
+      courseId: COURSE.yard,
+      title: "Terminal Operating Procedures",
+      lessonTitles: ["Terminal arrival and movement", "Dock and yard procedures"],
+      quiz: true,
+    },
+    {
+      courseId: COURSE.hos,
+      title: "Completion Verification",
+      lessonTitles: ["Completion records", "Manager verification"],
+      quiz: false,
+    },
   ];
 
-  plan.forEach(([courseId, moduleTitle, groups], ci) => {
-    const moduleId = `m${courseId.slice(1)}`;
+  plan.forEach(({ courseId, title, lessonTitles, quiz }, ci) => {
+    const courseNumber = Number(courseId.slice(-3));
+    const moduleId = `d1000000-0000-4000-a000-${String(courseNumber).padStart(12, "0")}`;
     modules.push({
       id: moduleId,
       course_id: courseId,
-      title: moduleTitle,
-      summary: `Core lessons for ${moduleTitle.toLowerCase()}.`,
+      title,
+      summary: `Core lessons for ${title.toLowerCase()}.`,
       sort_order: 1,
       published: true,
       created_at: daysAgo(120),
       updated_at: daysAgo(20),
     });
-    groups.forEach((titles) => lessons.push(...lessonsFor(courseId, moduleId, titles)));
+    lessons.push(...lessonsFor(courseId, moduleId, lessonTitles));
+    if (!quiz) return;
 
-    const quizId = `q${courseId.slice(1)}`;
+    const quizId = `e1000000-0000-4000-a000-${String(courseNumber).padStart(12, "0")}`;
     quizzes.push({
       id: quizId,
       course_id: courseId,
@@ -222,13 +213,11 @@ function buildCourseContent() {
       created_at: daysAgo(120),
       updated_at: daysAgo(20),
     });
-
     const qBank = [
       {
         prompt: "Who do you contact first when a load is running late?",
         options: ["Your dispatcher", "The customer", "Nobody, just keep driving", "Payroll"],
-        correct: ["Your dispatcher"],
-        explanation: "Dispatch owns customer communication and will update the receiver.",
+        correct: "Your dispatcher",
       },
       {
         prompt: "How soon must an incident be reported?",
@@ -238,31 +227,28 @@ function buildCourseContent() {
           "At your next home time",
           "Only if there is damage",
         ],
-        correct: ["Immediately"],
-        explanation: "Every incident is reported immediately, regardless of severity.",
+        correct: "Immediately",
       },
       {
         prompt: "What is the minimum passing score for this course?",
         options: ["80%", "50%", "65%", "100%"],
-        correct: ["80%"],
-        explanation: "All Academy knowledge checks require 80% or better.",
+        correct: "80%",
       },
     ];
-    qBank.forEach((q, qi) => {
+    qBank.forEach((q, qi) =>
       questions.push({
-        id: `${quizId.slice(0, 34)}${ci}${qi}`,
+        id: `f1000000-0000-4000-a000-${String(courseNumber * 100 + qi + 1).padStart(12, "0")}`,
         quiz_id: quizId,
         prompt: q.prompt,
         question_type: "single_choice",
         options: q.options,
-        correct_answers: q.correct,
-        explanation: q.explanation,
+        correct_answers: [q.correct],
+        explanation: "Review the approved course content and follow current company policy.",
         sort_order: qi + 1,
         created_at: daysAgo(120),
-      });
-    });
+      }),
+    );
   });
-
   return { modules, lessons, quizzes, questions };
 }
 
@@ -821,9 +807,10 @@ function seed(): Tables {
       {
         id: uid(),
         version_label: "2026.1",
-        title: "Driver Handbook",
-        approval_state: "draft",
-        description: "Current handbook effective January 2026.",
+        title: "Driver Handbook (sample content)",
+        approval_state: "approved",
+        description: "Sample handbook for demonstration only; verify all policies before use.",
+        change_summary: "Initial sample handbook release.",
         document_url: null,
         storage_path: null,
         effective_date: daysAgo(60).slice(0, 10),
@@ -832,6 +819,8 @@ function seed(): Tables {
         archived_at: null,
       },
     ],
+    handbook_acknowledgements: [],
+    demo_migrations: [{ id: "handbook-sample-approved-v1" }],
     safety_resources: [
       [
         "Pre-trip inspection checklist",
@@ -971,66 +960,92 @@ function seed(): Tables {
       },
     ],
     lms_courses: [
-      courseSeed(
-        COURSE.orientation,
-        "orientation",
-        "New Driver Orientation",
-        "Everything you need for a smooth first week at 52 Logistics.",
-        "onboarding",
-        45,
-        true,
-        1,
-      ),
-      courseSeed(
-        COURSE.handbook,
-        "driver-handbook",
-        "Driver Handbook",
-        "The policies every 52 Logistics driver agrees to follow.",
-        "policy",
-        40,
-        true,
-        2,
-      ),
-      courseSeed(
-        COURSE.systems,
-        "systems-and-apps",
-        "Systems & Apps",
-        "ELD, dispatch messaging and document capture, step by step.",
-        "systems",
-        30,
-        true,
-        3,
-      ),
-      courseSeed(
-        COURSE.safety,
-        "safety-fundamentals",
-        "Safety Fundamentals",
-        "Inspection, defensive driving and incident reporting standards.",
-        "safety",
-        50,
-        true,
-        4,
-      ),
-      courseSeed(
-        COURSE.yard,
-        "yard-and-dock",
-        "Yard & Dock Operations",
-        "How to move safely through customer yards and docks.",
-        "operations",
-        35,
-        false,
-        5,
-      ),
-      courseSeed(
-        COURSE.hos,
-        "hours-of-service",
-        "Hours of Service",
-        "Stay compliant and log every exception the right way.",
-        "compliance",
-        40,
-        true,
-        6,
-      ),
+      {
+        ...courseSeed(
+          COURSE.orientation,
+          "welcome",
+          "Welcome to 52 Logistics",
+          "Welcome to the 52 Logistics Driver Academy.",
+          "onboarding",
+          20,
+          true,
+          1,
+        ),
+        completion_rules: { lessons: true, quiz: true, acknowledgement: true },
+      },
+      {
+        ...courseSeed(
+          COURSE.handbook,
+          "handbook",
+          "Handbook",
+          "Review the current driver handbook and acknowledge its requirements.",
+          "policy",
+          20,
+          true,
+          2,
+        ),
+        completion_rules: { derived: "handbook_signed" },
+      },
+      {
+        ...courseSeed(
+          COURSE.systems,
+          "apps-systems",
+          "Required Apps & Systems",
+          "Required applications and company systems.",
+          "systems",
+          20,
+          true,
+          3,
+        ),
+        completion_rules: {
+          lessons: true,
+          confirmations: [
+            "Motive installed or access confirmed",
+            "Whip Around installed or access confirmed",
+            "MyFleetAI / Linehaul Central access confirmed",
+          ],
+          quiz: true,
+        },
+      },
+      {
+        ...courseSeed(
+          COURSE.safety,
+          "safety-fundamentals",
+          "Safety Fundamentals",
+          "Core safety standards and incident response.",
+          "safety",
+          20,
+          true,
+          4,
+        ),
+        completion_rules: { lessons: true, quiz: true, acknowledgement: true },
+      },
+      {
+        ...courseSeed(
+          COURSE.yard,
+          "terminal-operating-procedures",
+          "Terminal & Operating Procedures",
+          "Safe terminal, yard and dock operations.",
+          "operations",
+          20,
+          true,
+          5,
+        ),
+        completion_rules: { lessons: true, quiz: true, acknowledgement: true },
+      },
+      {
+        ...courseSeed(
+          COURSE.hos,
+          "completion-verification",
+          "Completion & Management Verification",
+          "Review completion records and manager verification.",
+          "onboarding",
+          20,
+          true,
+          6,
+        ),
+        completion_rules: { certification: true, management_verification: true },
+      },
     ],
     lms_modules: lms.modules,
     lms_lessons: lms.lessons,
@@ -1039,6 +1054,15 @@ function seed(): Tables {
     lms_enrollments: [],
     lms_lesson_progress: [],
     lms_quiz_attempts: [],
+    lms_course_starts: [],
+    lms_lesson_opens: [],
+    lms_external_link_opens: [],
+    lms_item_confirmations: [],
+    lms_course_acknowledgements: [],
+    lms_module_acknowledgements: [],
+    lms_driver_certifications: [],
+    lms_onboarding_verifications: [],
+    lms_audit_logs: [],
   };
 }
 
@@ -1059,8 +1083,78 @@ export function getDb(): Tables {
         const parsed = JSON.parse(raw) as Tables;
         const fresh = seed();
         seeding = false;
+        // Only upgrade the untouched legacy sample, never a user-edited release.
+        const migrations = parsed["demo_migrations"] ?? [];
+        if (!migrations.some((row) => row["id"] === "handbook-sample-approved-v1")) {
+          const sampleId = fresh["handbook_versions"]![0]!["id"];
+          const sample = (parsed["handbook_versions"] ?? []).find(
+            (row) =>
+              row["id"] === sampleId &&
+              row["version_label"] === "2026.1" &&
+              row["title"] === "Driver Handbook" &&
+              row["description"] === "Current handbook effective January 2026." &&
+              (row["approval_state"] === "draft" || row["approval_state"] == null) &&
+              row["published"] === true &&
+              row["archived_at"] == null &&
+              row["document_url"] == null &&
+              row["storage_path"] == null &&
+              row["requires_signature"] === true &&
+              row["updated_at"] == null,
+          );
+          if (sample) {
+            sample["title"] = "Driver Handbook (sample content)";
+            sample["approval_state"] = "approved";
+            sample["description"] =
+              "Sample handbook for demonstration only; verify all policies before use.";
+            sample["change_summary"] = "Initial sample handbook release.";
+          }
+          migrations.push({ id: "handbook-sample-approved-v1" });
+          parsed["demo_migrations"] = migrations;
+        }
         // Merge in any tables added since the snapshot was written.
         for (const key of Object.keys(fresh)) if (!parsed[key]) parsed[key] = fresh[key]!;
+        const academyMigration = "academy-exact-rules-v2";
+        if (!(parsed["demo_migrations"] ?? []).some((row) => row["id"] === academyMigration)) {
+          const supersededAt = nowIso();
+          for (const name of [
+            "lms_course_starts",
+            "lms_lesson_opens",
+            "lms_lesson_progress",
+            "lms_quiz_attempts",
+            "lms_external_link_opens",
+            "lms_item_confirmations",
+            "lms_course_acknowledgements",
+            "lms_module_acknowledgements",
+            "lms_enrollments",
+            "lms_driver_certifications",
+            "lms_onboarding_verifications",
+          ]) {
+            for (const row of parsed[name] ?? []) row["superseded_at"] ??= supersededAt;
+          }
+          for (const name of [
+            "lms_courses",
+            "lms_modules",
+            "lms_lessons",
+            "lms_quizzes",
+            "lms_quiz_questions",
+          ])
+            parsed[name] = fresh[name]!;
+          for (const name of [
+            "lms_course_starts",
+            "lms_lesson_opens",
+            "lms_lesson_progress",
+            "lms_quiz_attempts",
+            "lms_external_link_opens",
+            "lms_item_confirmations",
+            "lms_course_acknowledgements",
+            "lms_module_acknowledgements",
+            "lms_driver_certifications",
+            "lms_onboarding_verifications",
+            "lms_audit_logs",
+          ])
+            parsed[name] ??= fresh[name]!;
+          parsed["demo_migrations"]!.push({ id: academyMigration });
+        }
         for (const name of ["handbook_versions", "safety_resources"]) {
           for (const row of parsed[name] ?? []) row["approval_state"] ??= "draft";
         }

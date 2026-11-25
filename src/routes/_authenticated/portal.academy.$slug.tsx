@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
@@ -14,7 +14,15 @@ import {
   Target,
   XCircle,
 } from "lucide-react";
-import { getCourse, setLessonComplete, submitQuiz } from "@/lib/lms.functions";
+import {
+  acknowledgeModule,
+  completeLesson,
+  confirmItem,
+  getCourse,
+  logExternalLinkOpened,
+  openLesson,
+  submitQuiz,
+} from "@/lib/lms.functions";
 import { useSession } from "@/lib/session";
 import { PortalHeading } from "@/components/portal/PortalShell";
 import { AccessDenied, ErrorState, Panel, TableSkeleton } from "@/components/portal/ui";
@@ -44,10 +52,14 @@ type QuizResult = Awaited<ReturnType<typeof submitQuiz>>;
 
 function CoursePlayer() {
   const { slug } = Route.useParams();
-  const { isDriver, isAdmin, isLoading: sessionLoading } = useSession();
+  const { isDriver, isLoading: sessionLoading } = useSession();
   const fetchCourse = useServerFn(getCourse);
-  const markLesson = useServerFn(setLessonComplete);
+  const openLessonFn = useServerFn(openLesson);
+  const markLesson = useServerFn(completeLesson);
   const sendQuiz = useServerFn(submitQuiz);
+  const logLink = useServerFn(logExternalLinkOpened);
+  const confirmItemFn = useServerFn(confirmItem);
+  const acknowledgeModuleFn = useServerFn(acknowledgeModule);
   const queryClient = useQueryClient();
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -55,11 +67,23 @@ function CoursePlayer() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [openedTimes, setOpenedTimes] = useState<Record<string, string>>({});
+  const [clock, setClock] = useState(Date.now());
+  const [savingEvidence, setSavingEvidence] = useState(false);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["academy-course", slug],
     queryFn: () => fetchCourse({ data: { slug } }),
-    enabled: isDriver || isAdmin,
+    enabled: isDriver,
+    retry: (failureCount, queryError) => {
+      if (
+        queryError instanceof Error &&
+        /permission|not authorized|access denied/i.test(queryError.message)
+      ) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   const ordered = useMemo(() => {
@@ -72,34 +96,99 @@ function CoursePlayer() {
     );
   }, [data]);
 
-  if (sessionLoading) return <TableSkeleton rows={6} />;
-  if (!isDriver && !isAdmin) return <AccessDenied need="driver" />;
-  if (isLoading) return <TableSkeleton rows={8} />;
-  if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
-  if (!data) return null;
-
-  const completedIds = new Set(data.progress.filter((p) => p.completed).map((p) => p.lesson_id));
+  const completedIds = new Set(
+    data?.progress.filter((p) => p.completed).map((p) => p.lesson_id) ?? [],
+  );
   const current = ordered.find((l) => l.id === activeId) ?? ordered[0];
   const currentIndex = current ? ordered.findIndex((l) => l.id === current.id) : -1;
   const percent = ordered.length ? Math.round((completedIds.size / ordered.length) * 100) : 0;
-  const allLessonsDone = ordered.length > 0 && completedIds.size === ordered.length;
-  const bestAttempt = data.attempts[0] ?? null;
-  const quizPassed = data.attempts.some((a) => a.passed);
+  const completionRules = (data?.course["completion_rules"] ?? {}) as Record<string, unknown>;
+  const derivedFromHandbook = completionRules["derived"] === "handbook_signed";
+  const allLessonsDone =
+    completionRules["lessons"] !== true ||
+    (ordered.length > 0 && completedIds.size === ordered.length);
+  const bestAttempt = data?.attempts[0] ?? null;
+  const quizPassed = data?.attempts.some((a) => a.passed) ?? false;
 
-  async function complete(lessonId: string, next: boolean) {
+  const selectLesson = useCallback(
+    async (lessonId: string) => {
+      setActiveId(lessonId);
+      setMode("lesson");
+      try {
+        const opened = await openLessonFn({ data: { lesson_id: lessonId } });
+        setOpenedTimes((times) => ({ ...times, [lessonId]: opened.opened_at }));
+        await queryClient.invalidateQueries({ queryKey: ["academy-course", slug] });
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not open lesson");
+      }
+    },
+    [openLessonFn, queryClient, slug],
+  );
+
+  async function complete(lessonId: string) {
     try {
-      await markLesson({
-        data: { lesson_id: lessonId, course_id: data!.course.id, completed: next },
-      });
+      await markLesson({ data: { lesson_id: lessonId } });
       await queryClient.invalidateQueries({ queryKey: ["academy-course", slug] });
       await queryClient.invalidateQueries({ queryKey: ["academy-overview"] });
-      if (next && currentIndex >= 0 && currentIndex < ordered.length - 1) {
-        setActiveId(ordered[currentIndex + 1]!.id);
+      if (currentIndex >= 0 && currentIndex < ordered.length - 1) {
+        void selectLesson(ordered[currentIndex + 1]!.id);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save progress");
     }
   }
+
+  async function openExternalLink(url: string, linkKey: string) {
+    const popup = window.open("about:blank", "_blank", "noopener,noreferrer");
+    try {
+      await logLink({ data: { course_id: data!.course.id, link_key: linkKey } });
+      await queryClient.invalidateQueries({ queryKey: ["academy-course", slug] });
+      await queryClient.invalidateQueries({ queryKey: ["academy-overview"] });
+      if (popup) popup.location.href = url;
+    } catch (e) {
+      popup?.close();
+      toast.error(e instanceof Error ? e.message : "Could not log external link");
+    }
+  }
+
+  async function saveEvidence(action: () => Promise<unknown>, success: string) {
+    setSavingEvidence(true);
+    try {
+      await action();
+      await queryClient.invalidateQueries({ queryKey: ["academy-course", slug] });
+      await queryClient.invalidateQueries({ queryKey: ["academy-overview"] });
+      toast.success(success);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save requirement");
+    } finally {
+      setSavingEvidence(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!data || activeId || !ordered.length) return;
+    void selectLesson(ordered[0]!.id);
+  }, [data, activeId, ordered, selectLesson]);
+
+  const openedAt = current ? (openedTimes[current.id] ?? current.opened_at) : null;
+  const minViewSeconds = Number(current?.min_view_seconds ?? 0);
+  const secondsRemaining = openedAt
+    ? Math.max(0, Math.ceil((Date.parse(openedAt) + minViewSeconds * 1000 - clock) / 1000))
+    : minViewSeconds;
+
+  useEffect(() => {
+    if (!current || !openedAt || secondsRemaining <= 0) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [current, openedAt, secondsRemaining]);
+
+  if (sessionLoading) return <TableSkeleton rows={6} />;
+  if (!isDriver) return <AccessDenied need="driver" />;
+  if (isLoading) return <TableSkeleton rows={8} />;
+  if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
+  if (!data) return null;
+  const evaluation = data.evaluation;
+  const missingRequirements = evaluation.missing;
 
   async function handleQuizSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -174,10 +263,7 @@ function CoursePlayer() {
                           <li key={l.id}>
                             <button
                               type="button"
-                              onClick={() => {
-                                setActiveId(l.id);
-                                setMode("lesson");
-                              }}
+                              onClick={() => void selectLesson(l.id)}
                               aria-current={active ? "true" : undefined}
                               className={`flex min-h-11 w-full items-center gap-2 rounded-sm px-2 text-left text-sm transition-colors ${
                                 active ? "bg-secondary font-semibold" : "hover:bg-secondary/60"
@@ -213,7 +299,10 @@ function CoursePlayer() {
                     }`}
                   >
                     {quizPassed ? (
-                      <CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                      <CheckCircle2
+                        className="size-4 shrink-0 text-emerald-600"
+                        aria-hidden="true"
+                      />
                     ) : (
                       <FileText className="size-4 shrink-0 text-accent" aria-hidden="true" />
                     )}
@@ -227,6 +316,125 @@ function CoursePlayer() {
 
         {/* Content */}
         <div className="lg:col-span-8 xl:col-span-9">
+          <Panel title="Course requirements">
+            <ul className="space-y-2 text-sm">
+              {[
+                ["lessons", "Complete all lessons", missingRequirements.includes("lessons")],
+                ["quiz", "Pass the knowledge check", missingRequirements.includes("quiz")],
+                [
+                  "handbook_signed",
+                  "Sign the current handbook",
+                  missingRequirements.includes("handbook_signed"),
+                ],
+                ...(
+                  (Array.isArray(completionRules["confirmations"])
+                    ? completionRules["confirmations"]
+                    : []) as string[]
+                ).map((key) => [key, key, missingRequirements.includes(key)]),
+                [
+                  "acknowledgement",
+                  "Acknowledge this course",
+                  missingRequirements.includes("acknowledgement"),
+                ],
+                [
+                  "certification",
+                  "Record driver certification",
+                  missingRequirements.includes("certification"),
+                ],
+                [
+                  "management_verification",
+                  "Management verification",
+                  missingRequirements.includes("management_verification"),
+                ],
+              ]
+                .filter(([key]) => {
+                  if (key === "lessons") return completionRules["lessons"] === true;
+                  if (key === "quiz") return completionRules["quiz"] === true;
+                  if (key === "handbook_signed") return derivedFromHandbook;
+                  if (key === "acknowledgement") return completionRules["acknowledgement"] === true;
+                  if (key === "certification") return completionRules["certification"] === true;
+                  if (key === "management_verification")
+                    return completionRules["management_verification"] === true;
+                  return (
+                    Array.isArray(completionRules["confirmations"]) &&
+                    completionRules["confirmations"].includes(key)
+                  );
+                })
+                .map(([key, label, missing]) => (
+                  <li key={String(key)} className="flex items-center gap-2">
+                    {missing ? (
+                      <Circle className="size-4 text-muted-foreground" aria-hidden="true" />
+                    ) : (
+                      <CheckCircle2 className="size-4 text-emerald-600" aria-hidden="true" />
+                    )}
+                    {label}
+                    {!missing ? (
+                      <span className="text-xs text-muted-foreground">Complete</span>
+                    ) : null}
+                  </li>
+                ))}
+            </ul>
+            {Array.isArray(completionRules["confirmations"])
+              ? (completionRules["confirmations"] as string[])
+                  .filter((key) => missingRequirements.includes(key))
+                  .map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={savingEvidence}
+                      onClick={() =>
+                        void saveEvidence(
+                          () =>
+                            confirmItemFn({ data: { course_id: data.course.id, item_key: key } }),
+                          "Requirement confirmed",
+                        )
+                      }
+                      className="mt-4 mr-2 min-h-10 rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary disabled:opacity-60"
+                    >
+                      Confirm: {key}
+                    </button>
+                  ))
+              : null}
+            {completionRules["acknowledgement"] === true &&
+            missingRequirements.includes("acknowledgement") ? (
+              <button
+                type="button"
+                disabled={savingEvidence}
+                onClick={() => {
+                  const signature_name = window.prompt(
+                    "Type your full name to acknowledge this module:",
+                  );
+                  if (!signature_name?.trim()) return;
+                  void saveEvidence(
+                    () =>
+                      acknowledgeModuleFn({
+                        data: { course_id: data.course.id, signature_name: signature_name.trim() },
+                      }),
+                    "Module acknowledged",
+                  );
+                }}
+                className="mt-4 min-h-10 rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary disabled:opacity-60"
+              >
+                Acknowledge module
+              </button>
+            ) : null}
+            {data.links.map((link) => (
+              <a
+                key={link.link_key}
+                href={String(link.url ?? "#")}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (link.url) void openExternalLink(String(link.url), link.link_key);
+                }}
+                className="mt-4 mr-2 inline-flex min-h-10 items-center rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary"
+              >
+                Open {link.label}
+              </a>
+            ))}
+          </Panel>
+
           {mode === "quiz" && data.quiz ? (
             <Panel title={data.quiz.title}>
               <p className="text-sm text-muted-foreground">{data.quiz.instructions}</p>
@@ -266,7 +474,10 @@ function CoursePlayer() {
                     {result.results.map((r) => (
                       <li key={r.question_id} className="flex gap-3 py-3">
                         {r.correct ? (
-                          <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                          <Check
+                            className="mt-0.5 size-4 shrink-0 text-emerald-600"
+                            aria-hidden="true"
+                          />
                         ) : (
                           <XCircle
                             className="mt-0.5 size-4 shrink-0 text-destructive"
@@ -287,7 +498,9 @@ function CoursePlayer() {
                       </li>
                     ))}
                   </ul>
-                  {!result.passed && result.attempts_remaining > 0 ? (
+                  {!result.passed &&
+                  result.attempts_remaining != null &&
+                  result.attempts_remaining > 0 ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -391,24 +604,36 @@ function CoursePlayer() {
               ) : null}
 
               <div className="mt-7 flex flex-wrap items-center gap-3 border-t border-border pt-5">
-                <button
-                  type="button"
-                  onClick={() => void complete(current.id, !completedIds.has(current.id))}
-                  className={`inline-flex min-h-11 items-center gap-2 rounded-sm px-5 text-sm font-semibold ${
-                    completedIds.has(current.id)
-                      ? "border border-input hover:bg-secondary"
-                      : "bg-primary text-primary-foreground hover:bg-primary/90"
-                  }`}
-                >
-                  {completedIds.has(current.id) ? "Mark incomplete" : "Mark complete & continue"}
-                  {!completedIds.has(current.id) ? (
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  ) : null}
-                </button>
+                {!derivedFromHandbook ? (
+                  <div>
+                    <button
+                      type="button"
+                      disabled={completedIds.has(current.id) || !openedAt || secondsRemaining > 0}
+                      onClick={() => void complete(current.id)}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-sm bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {completedIds.has(current.id)
+                        ? "Lesson complete"
+                        : "Mark complete & continue"}
+                      {!completedIds.has(current.id) ? (
+                        <ArrowRight className="size-4" aria-hidden="true" />
+                      ) : null}
+                    </button>
+                    {!completedIds.has(current.id) ? (
+                      <p className="mt-2 text-xs text-muted-foreground" aria-live="polite">
+                        {!openedAt
+                          ? "Opening lesson…"
+                          : secondsRemaining > 0
+                            ? `Complete available in ${secondsRemaining} second${secondsRemaining === 1 ? "" : "s"}.`
+                            : "Minimum review time reached."}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {currentIndex > 0 ? (
                   <button
                     type="button"
-                    onClick={() => setActiveId(ordered[currentIndex - 1]!.id)}
+                    onClick={() => void selectLesson(ordered[currentIndex - 1]!.id)}
                     className="inline-flex min-h-11 items-center gap-2 rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary"
                   >
                     <ArrowLeft className="size-4" aria-hidden="true" />
@@ -418,7 +643,7 @@ function CoursePlayer() {
                 {currentIndex < ordered.length - 1 ? (
                   <button
                     type="button"
-                    onClick={() => setActiveId(ordered[currentIndex + 1]!.id)}
+                    onClick={() => void selectLesson(ordered[currentIndex + 1]!.id)}
                     className="inline-flex min-h-11 items-center gap-2 rounded-sm border border-input px-4 text-sm font-semibold hover:bg-secondary"
                   >
                     Next lesson

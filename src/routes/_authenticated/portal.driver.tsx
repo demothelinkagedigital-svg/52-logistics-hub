@@ -1,8 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@/lib/mock/server-fn";
 import { toast } from "sonner";
 import { getDriverHub, setModuleProgress, acknowledgeSafety } from "@/lib/driver.functions";
+import { getHandbook } from "@/lib/handbook.functions";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/lib/session";
 import { PortalHeading } from "@/components/portal/PortalShell";
 import { AccessDenied, EmptyState, ErrorState, Panel, TableSkeleton } from "@/components/portal/ui";
@@ -23,14 +26,21 @@ export const Route = createFileRoute("/_authenticated/portal/driver")({
 });
 
 function DriverHub() {
-  const { isDriver, isAdmin, isLoading: sessionLoading } = useSession();
+  const { user, isDriver, isAdmin, isLoading: sessionLoading } = useSession();
   const fetchHub = useServerFn(getDriverHub);
   const setProgress = useServerFn(setModuleProgress);
   const ack = useServerFn(acknowledgeSafety);
+  const fetchHandbook = useServerFn(getHandbook);
   const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["driver-hub"],
     queryFn: () => fetchHub(),
+    enabled: isDriver || isAdmin,
+  });
+
+  const handbook = useQuery({
+    queryKey: ["handbook", user?.id],
+    queryFn: () => fetchHandbook(),
     enabled: isDriver || isAdmin,
   });
 
@@ -144,17 +154,38 @@ function DriverHub() {
           </Panel>
 
           <Panel title="Handbook">
-            {!data?.handbook.length ? (
-              <EmptyState title="No handbook sections" />
+            {handbook.isLoading ? (
+              <TableSkeleton rows={2} />
+            ) : handbook.error ? (
+              <ErrorState error={handbook.error} onRetry={() => void handbook.refetch()} />
+            ) : !handbook.data?.version ? (
+              <EmptyState
+                title="No current handbook"
+                blurb="A published handbook is not available yet."
+              />
             ) : (
-              <ul className="space-y-4">
-                {data.handbook.map((h) => (
-                  <li key={h.id}>
-                    <p className="text-sm font-semibold">{h.title}</p>
-                    <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">{h.body}</p>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold">
+                    {String(handbook.data.version["title"] ?? "Driver handbook")} ·{" "}
+                    {String(handbook.data.version["version_label"] ?? "Current version")}
+                  </p>
+                  {isDriver && handbook.data.signature ? (
+                    <Badge variant="secondary">
+                      Signed {String(handbook.data.version["version_label"])} on{" "}
+                      {new Date(handbook.data.signature["signed_at"]).toLocaleDateString()}
+                    </Badge>
+                  ) : isDriver ? (
+                    <Badge>
+                      Action required: sign handbook{" "}
+                      {String(handbook.data.version["version_label"])}
+                    </Badge>
+                  ) : null}
+                </div>
+                <Button asChild variant="outline">
+                  <Link to="/portal/handbook">Open handbook</Link>
+                </Button>
+              </div>
             )}
           </Panel>
         </div>
